@@ -6,8 +6,6 @@ const questionSchema = new mongoose.Schema({
   correctAnswerRaw: { type: String },
   explanation: { type: String },
   references: { type: [String] },
-  rewritten: { type: String, default: "" },
-  status: { type: String, default: "pending" },
 });
 
 export { questionSchema };

@@ -50,7 +50,7 @@ export default function DocumentPage() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
 
-  const iconRef = useRef<HTMLDivElement | null>(null);
+  const iconRef = useRef<SVGSVGElement | null>(null);
 
   // Get All Documents
   const fetchDocuments = async () => {
@@ -151,9 +151,9 @@ export default function DocumentPage() {
                   <TableCell>{doc.date}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {doc.status === "completed" && (
+                      {doc.status === "completed" && doc._id && (
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/document/${doc._id}`}>
+                          <Link href={`/documents/${doc._id}`}>
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Link>

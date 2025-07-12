@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import mammoth from "mammoth";
+import mongoose from "mongoose";
 import { DocumentModel } from "../models/document.model.js";
 import { parseQuestions } from "../utils/parseQuestion.js";
 import { OpenAI } from "openai";
@@ -12,7 +13,7 @@ dotenv.config();
 // Intialize router
 const router = express.Router();
 
-// multer for uploading file in memory
+// multer for uploading files in memory
 const upload = multer({ storage: multer.memoryStorage() });
 
 // setup openai API key
@@ -30,6 +31,7 @@ async function runAssistant(messageText) {
   return pollUntilComplete(run.thread_id, run.id);
 }
 
+// Polling the data
 async function pollUntilComplete(threadId, runId) {
   while (true) {
     const r = await openai.beta.threads.runs.retrieve(runId, {
@@ -102,6 +104,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
     // Respond quickly
     res.status(201).json(doc);
+
+    // Start background processing after response
+    processQuestionsAsync(doc._id);
   } catch (err) {
     console.error("❌ Upload failed:", err);
     res.status(500).json({ message: "Upload failed", error: err.message });
@@ -114,9 +119,30 @@ router.get("/", async (_, res) => {
 });
 
 router.get("/:id", async (req, res) => {
-  const doc = await DocumentModel.findById(req.params.id);
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid document ID" });
+  }
+
+  const doc = await DocumentModel.findById(id);
   if (!doc) return res.status(404).json({ message: "Not found" });
   res.json(doc);
+});
+
+// Downloading cards .docx file
+router.get("/:docId/questions/:qId/download", async (req, res) => {
+  const doc = await DocumentModel.findById(req.params.docId);
+  const question = doc.questions.id(req.params.qId);
+  if (!question) return res.status(404).send("Not found");
+
+  const docxBuf = await generateQuestionDocx(question);
+  res.set({
+    "Content-Type":
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "Content-Disposition": `attachment; filename=question-${qId}.docx`,
+  });
+  res.send(docxBuf);
 });
 
 export { router };
