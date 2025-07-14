@@ -150,7 +150,7 @@ export default function BatchDetailPage({
                             className="p-3 rounded-lg border bg-gray-50"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">
+                              <span className="font-medium self-start">
                                 {choiceLetter}.
                               </span>
                               <span>{choice}</span>
