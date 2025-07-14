@@ -1,65 +1,103 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Loader2 } from "lucide-react"
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
-const defaultPrompt = `You are an expert question generator. Based on the provided document content, create multiple-choice questions that:
+const defaultPrompt = `You are provided with a full MSRA SJT case (scenario, options, answer, explanation). Rewrite it into a fully original academic case study using formal academic British English. Maintain the ethical principle.
 
-1. Test comprehension of key concepts
-2. Include 4 answer choices (A, B, C, D)
-3. Have only one correct answer
-4. Include a clear explanation for the correct answer
-5. Are appropriate for the document's subject matter and complexity level
+Your output must follow this structure exactly:
 
-Format each question as:
-Question: [Your question here]
-A) [Choice A]
-B) [Choice B]
-C) [Choice C]
-D) [Choice D]
-Correct Answer: [Letter]
-Explanation: [Detailed explanation]
+Question
+<Rewritten academic scenario>
 
-Generate 5-10 questions per document depending on content length and complexity.`
+Options
+<Option 1>
+<Option 2>
+<Option 3>
+<Option 4>
+<Option 5>
+
+Answer
+A, D, C, B, E  ← Provide only capital letters in the correct ranked order
+
+Explanation
+<Formal explanation in academic tone>
+
+References
+• GMC Good Medical Practice 2024 (PDF)
+• The Health Foundation – New Medical Professionalism (PDF)
+• University of Central Lancashire – Medical Professionalism (PDF)
+
+Important notes:
+- Do NOT prefix options with A), B), 1., etc. — just list them plainly
+- The answer must be a **ranked list of letters** (A–E), nothing else
+- If the prompt doesn’t include a references section, always include the three default ones above
+- Use clear, professional British English — no informal or casual language`;
 
 export default function PromptPage() {
-  const [prompt, setPrompt] = useState(defaultPrompt)
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [updateSuccess, setUpdateSuccess] = useState(false)
+  const [prompt, setPrompt] = useState(defaultPrompt);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+
+  // ✅ Load the latest prompt from backend on mount
+  useEffect(() => {
+    const fetchPrompt = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/prompt");
+        if (!res.ok) throw new Error("Failed to fetch prompt");
+        const data = await res.json();
+        setPrompt(data.content || defaultPrompt); // fallback to default if empty
+      } catch (err) {
+        console.warn("⚠️ Using default prompt due to fetch failure:", err);
+        setPrompt(defaultPrompt);
+      }
+    };
+
+    fetchPrompt();
+  }, []);
 
   const handleUpdatePrompt = async () => {
-    setIsUpdating(true)
-    setUpdateSuccess(false)
+    setIsUpdating(true);
+    setUpdateSuccess(false);
 
-    // Simulate API call to update prompt
+    await fetch("http://localhost:4000/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: prompt }), // ✅ key must be "content"
+    });
+
     setTimeout(() => {
-      setIsUpdating(false)
-      setUpdateSuccess(true)
-
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setUpdateSuccess(false)
-      }, 3000)
-    }, 1000)
-  }
+      setIsUpdating(false);
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+    }, 1000);
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">GPT Prompt Settings</h1>
-        <p className="text-gray-600">Configure the prompt template used for question generation</p>
+        <p className="text-gray-600">
+          Configure the prompt template used for question generation
+        </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Prompt Template</CardTitle>
           <CardDescription>
-            This prompt will be used by GPT to generate questions from uploaded documents. Modify it to customize the
-            question generation behavior.
+            This prompt will be used by GPT to generate questions from uploaded
+            documents. Modify it to customize the question generation behavior.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -76,12 +114,19 @@ export default function PromptPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button onClick={handleUpdatePrompt} disabled={isUpdating || !prompt.trim()}>
+            <Button
+              onClick={handleUpdatePrompt}
+              disabled={isUpdating || !prompt.trim()}
+            >
               {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Prompt
             </Button>
 
-            {updateSuccess && <p className="text-sm text-green-600 font-medium">Prompt updated successfully!</p>}
+            {updateSuccess && (
+              <p className="text-sm text-green-600 font-medium">
+                Prompt updated successfully!
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -102,5 +147,5 @@ export default function PromptPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

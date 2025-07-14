@@ -46,6 +46,24 @@ const getStatusBadge = (status: DocumentItem["status"]) => {
   );
 };
 
+const defaultPrompt = `You are an expert question generator. Based on the provided document content, create multiple-choice questions that:
+
+1. Test comprehension of key concepts
+2. Include 4 answer choices (A, B, C, D)
+3. Have only one correct answer
+4. Include a clear explanation for the correct answer
+5. Are appropriate for the document's subject matter and complexity level
+
+Format each question as:
+Question: [Your question here]
+A) [Choice A]
+B) [Choice B]
+C) [Choice C]
+D) [Choice D]
+Correct Answer: [Letter]
+Explanation: [Detailed explanation]
+references: []`;
+
 export default function DocumentPage() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -69,18 +87,39 @@ export default function DocumentPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const getLatestPrompt = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/prompt");
+      if (!res.ok) throw new Error("No prompt found");
+
+      const data = await res.json();
+      return data.content || defaultPrompt;
+    } catch (error) {
+      console.warn("Falling back to default prompt:", error);
+      return defaultPrompt;
+    }
+  };
+
   // Post Documents
   const handleUploadSuccess = async (file: File) => {
     try {
+      const prompt = await getLatestPrompt();
+
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("prompt", prompt);
 
       const res = await fetch("http://localhost:4000/documents/upload", {
         method: "POST",
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("Upload failed with status:", res.status);
+        console.error("Error response:", errData);
+        throw new Error("Upload failed");
+      }
 
       fetchDocuments();
     } catch (error) {
@@ -110,7 +149,7 @@ export default function DocumentPage() {
         <CardHeader>
           <CardTitle>Upload Document</CardTitle>
           <CardDescription>
-            Upload a .docx file to process and generate questions.
+            Upload a .xlsx file to process and generate questions.
           </CardDescription>
         </CardHeader>
         <CardContent>

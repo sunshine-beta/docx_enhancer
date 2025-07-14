@@ -34,8 +34,8 @@ export function UploadDialog({
     setError("");
 
     if (file) {
-      if (!file.name.endsWith(".docx")) {
-        setError("Please select a .docx file only");
+      if (!file.name.endsWith(".xlsx")) {
+        setError("Please select a .xlsx file only");
         setSelectedFile(null);
         return;
       }
@@ -80,7 +80,7 @@ export function UploadDialog({
         <DialogHeader>
           <DialogTitle>Upload Document</DialogTitle>
           <DialogDescription>
-            Select a .docx file to upload and process.
+            Select a .xlsx file to upload and process.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -89,7 +89,7 @@ export function UploadDialog({
             <Input
               id="file"
               type="file"
-              accept=".docx"
+              accept=".xlsx"
               onChange={handleFileChange}
               disabled={isProcessing}
             />

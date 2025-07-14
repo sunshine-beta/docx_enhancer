@@ -14,7 +14,6 @@ const documentSchema = new mongoose.Schema({
     type: String,
     default: () => new Date().toDateString(),
   },
-  filePath: { type: String },
   questions: [questionSchema],
 });
 

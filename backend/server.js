@@ -3,6 +3,7 @@ import cors from "cors";
 import * as dotenv from "dotenv";
 import connectDB from "./config/mongoose.connection.js";
 import { router as documentRoute } from "./routes/document.route.js";
+import { router as promptRoute } from "./routes/prompt.route.js";
 
 // setup dotenv package to use environment variables
 dotenv.config();
@@ -23,6 +24,7 @@ app.use(
 
 // routes middlewares
 app.use("/documents", documentRoute);
+app.use("/prompt", promptRoute);
 
 // Routes
 app.get("/", (_, res) => res.send("API is running"));
