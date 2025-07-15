@@ -18,6 +18,14 @@ export default function BatchDetailPage({
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
 
+  interface GptResponse {
+    question: string;
+    options: string[];
+    answer: string;
+    explanation: string;
+    references: string[];
+  }
+
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
@@ -46,11 +54,45 @@ export default function BatchDetailPage({
   };
 
   const handleImproveSuccess = (questionId: string, rewrittenText: string) => {
-    const updated = questions.map((q) =>
-      q._id === questionId
-        ? { ...q, rewritten: rewrittenText, status: "completed" }
-        : q
-    );
+    const updated = questions.map((q) => {
+      if (q._id !== questionId) return q;
+
+      let updatedGptResponse: GptResponse;
+
+      if (typeof q.gptResponse === "string") {
+        try {
+          updatedGptResponse = JSON.parse(q.gptResponse) as GptResponse;
+          updatedGptResponse.question = rewrittenText;
+        } catch {
+          updatedGptResponse = {
+            question: rewrittenText,
+            options: [],
+            answer: "",
+            explanation: "",
+            references: [],
+          };
+        }
+      } else if (typeof q.gptResponse === "object" && q.gptResponse !== null) {
+        updatedGptResponse = {
+          ...(q.gptResponse as GptResponse),
+          question: rewrittenText,
+        };
+      } else {
+        updatedGptResponse = {
+          question: rewrittenText,
+          options: [],
+          answer: "",
+          explanation: "",
+          references: [],
+        };
+      }
+
+      return {
+        ...q,
+        gptResponse: updatedGptResponse,
+      };
+    });
+
     setQuestions(updated);
     setImproveDialogOpen(false);
   };
@@ -87,6 +129,8 @@ export default function BatchDetailPage({
             references: string[];
           } | null = null;
 
+          console.log("GPT RAW Response:", question.gptResponse);
+
           try {
             gptData =
               typeof question.gptResponse === "string"
@@ -96,7 +140,11 @@ export default function BatchDetailPage({
             console.warn("Failed to parse gptResponse:", err);
           }
 
-          const correctLetters = gptData?.answer?.split("") ?? [];
+          const correctLetters =
+            gptData?.answer
+              ?.split("")
+              .map((char) => char.trim().toUpperCase())
+              .filter((char) => /^[A-E]$/.test(char)) ?? [];
 
           return (
             <Card key={question._id}>

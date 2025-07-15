@@ -1,8 +1,9 @@
-import express, { response } from "express";
+import express from "express";
 import multer from "multer";
 import mongoose from "mongoose";
 import { DocumentModel } from "../models/document.model.js";
 import { parseXlsxRows } from "../utils/praseXlsxRows.js";
+import { PromptModel } from "../models/prompt.model.js";
 import { OpenAI } from "openai";
 import dotenv from "dotenv";
 
@@ -12,6 +13,35 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
+
+function extractAnswerFromText(text) {
+  console.log("🔍 Extracting answer from text:\n", text);
+
+  // Look for common patterns
+  const correctAnswerMatch = text.match(
+    /Correct Answer[:\-]?\s*([A-E](?:[\s,]+[A-E])*)/i
+  );
+  if (correctAnswerMatch) {
+    console.log("✅ Found Correct Answer line:", correctAnswerMatch[1]);
+    return correctAnswerMatch[1]
+      .split(/[\s,]+/)
+      .map((c) => c.trim().toUpperCase())
+      .filter((c) => /^[A-E]$/.test(c))
+      .join(", ");
+  }
+
+  // Try from explanation brackets: (D), (C), ...
+  const bracketMatches = [...text.matchAll(/\(([A-E])\)/gi)];
+  const letters = bracketMatches.map((m) => m[1].toUpperCase());
+
+  if (letters.length > 0) {
+    console.log("✅ Extracted from brackets:", letters);
+    return [...new Set(letters)].join(", "); // Remove duplicates, preserve order
+  }
+
+  console.warn("❌ Could not extract answer from text.");
+  return "";
+}
 
 function generateQuestionDocx(question) {
   const {
@@ -35,13 +65,33 @@ function generateQuestionDocx(question) {
   return Buffer.from(text, "utf-8");
 }
 
+function buildPromptFromTemplate(promptTemplate, question) {
+  const {
+    question: qText = "",
+    options = [],
+    correctAnswerRaw = "",
+    explanation = "",
+    references = [],
+  } = question;
+
+  return promptTemplate
+    .replace("[Your question here]", qText)
+    .replace("[Choice A]", options[0] || "")
+    .replace("[Choice B]", options[1] || "")
+    .replace("[Choice C]", options[2] || "")
+    .replace("[Choice D]", options[3] || "")
+    .replace("[Letter]", correctAnswerRaw)
+    .replace("[Detailed explanation]", explanation)
+    .replace("references: []", `references: ${JSON.stringify(references)}`);
+}
+
 async function runAssistant(messageText) {
   const run = await openai.beta.threads.createAndRun({
     assistant_id: ASSISTANT_ID,
     thread: { messages: [{ role: "user", content: messageText }] },
   });
   const responseText = await pollUntilComplete(run.thread_id, run.id);
-  console.log("GPT-4o-mini Reponse:", responseText);
+  console.log("GPT-4o-mini Response:", responseText);
   return responseText;
 }
 
@@ -71,30 +121,44 @@ async function processQuestionsAsync(docId, promptTemplate) {
   if (!doc) return;
 
   const questions = doc.questions;
-  const batchSize = 10; // Tune this! Start with 3–5. Can go up to 10–20 depending on your OpenAI rate limits
+  const batchSize = 10;
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const processBatch = async (batch, startIndex) => {
     const promises = batch.map(async (q, idx) => {
       const index = startIndex + idx;
-
-      const customPrompt = promptTemplate
-        .replace("[Your question here]", q.question)
-        .replace("[Choice A]", q.options[0] || "")
-        .replace("[Choice B]", q.options[1] || "")
-        .replace("[Choice C]", q.options[2] || "")
-        .replace("[Choice D]", q.options[3] || "")
-        .replace("[Letter]", q.correctAnswerRaw)
-        .replace("[Detailed explanation]", q.explanation || "")
-        .replace(
-          "references: []",
-          `references: ${JSON.stringify(q.references || [])}`
-        );
+      const customPrompt = buildPromptFromTemplate(promptTemplate, q);
 
       try {
         const result = await runAssistant(customPrompt);
+        let parsed;
+
         try {
-          const parsed = JSON.parse(result);
+          parsed = JSON.parse(result);
+
+          if (!parsed || typeof parsed !== "object" || !parsed.question) {
+            throw new Error("GPT response missing expected fields");
+          }
+
+          console.log("🧠 Raw GPT JSON:", parsed);
+
+          const answerSource = parsed.answer || parsed.Answer || ""; // Cover capitalized fields too
+          const explanationText =
+            parsed.explanation || parsed.Explanation || "";
+
+          let extractedAnswer = answerSource.trim();
+          if (!extractedAnswer) {
+            console.log("🔎 Answer missing — extracting from explanation");
+            extractedAnswer = extractAnswerFromText(explanationText);
+            if (!extractedAnswer) {
+              console.log(
+                "🔎 Still missing — fallback to full GPT response text"
+              );
+              extractedAnswer = extractAnswerFromText(result); // fallback to full raw GPT response
+            }
+          }
+
+          parsed.answer = extractedAnswer;
 
           if (!parsed.references && parsed.referrences) {
             parsed.references = parsed.referrences;
@@ -109,9 +173,13 @@ async function processQuestionsAsync(docId, promptTemplate) {
           }
 
           questions[index].gptResponse = parsed;
+          console.log(
+            `✅ Final parsed answer for Q${index + 1}:`,
+            parsed.answer
+          );
         } catch (parseErr) {
           questions[index].gptResponse = {
-            error: "Failed to parse GPT response",
+            error: parseErr.message || "Failed to parse GPT response",
             raw: result,
           };
         }
@@ -130,12 +198,71 @@ async function processQuestionsAsync(docId, promptTemplate) {
     const batch = questions.slice(i, i + batchSize);
     await processBatch(batch, i);
     console.log(`✅ Processed batch ${i}–${i + batch.length}`);
-    await delay(3000); // Wait a bit between batches
+    await delay(3000);
   }
 
   doc.status = "completed";
   await doc.save();
 }
+
+router.post("/improve-question", async (req, res) => {
+  const { questionId, improvementPrompt } = req.body;
+
+  if (!questionId || !improvementPrompt) {
+    return res.status(400).json({ message: "Missing questionId or prompt" });
+  }
+
+  try {
+    const doc = await DocumentModel.findOne({ "questions._id": questionId });
+    if (!doc) return res.status(404).json({ message: "Document not found" });
+
+    const question = doc.questions.id(questionId);
+    if (!question)
+      return res.status(404).json({ message: "Question not found" });
+
+    const latestPrompt = await PromptModel.findOne().sort({ updatedAt: -1 });
+    const promptTemplate =
+      latestPrompt?.content || "You are provided with a full MSRA SJT case...";
+
+    const basePrompt = buildPromptFromTemplate(promptTemplate, question);
+
+    const finalPrompt = `${basePrompt}
+
+---
+User Feedback for Improvement:
+${improvementPrompt}`.trim();
+
+    const gptResponse = await runAssistant(finalPrompt);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(gptResponse);
+
+      if (!parsed || typeof parsed !== "object" || !parsed.question) {
+        return res.status(400).json({
+          message: "GPT response missing expected fields",
+          raw: parsed,
+        });
+      }
+
+      question.gptResponse = parsed;
+      await doc.save();
+
+      res.json({ rewrittenText: parsed.question || "" });
+    } catch (err) {
+      console.error("GPT response not JSON:", gptResponse);
+      return res.status(500).json({
+        message: "Failed to parse GPT response",
+        raw: gptResponse,
+      });
+    }
+  } catch (err) {
+    console.error("Error improving question:", err);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: err.message });
+  }
+});
 
 router.post("/upload", upload.single("file"), async (req, res) => {
   console.log("/upload endpoint hit");
@@ -145,8 +272,13 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ message: "Prompt missing" });
+    let prompt = req.body.prompt;
+    if (!prompt) {
+      const latestPrompt = await PromptModel.findOne().sort({ updatedAt: -1 });
+      prompt =
+        latestPrompt?.content ||
+        `You are provided with a full MSRA SJT case (scenario, options, answer, explanation)...`;
+    }
 
     const parsed = parseXlsxRows(req.file.buffer);
     if (!parsed.length) {

@@ -13,12 +13,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 interface ImproveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   questionId: string;
-  onImproveSuccess: (questionId: string, feedback: string) => void;
+  onImproveSuccess: (questionId: string, rewrittenText: string) => void;
 }
 
 export function ImproveDialog({
@@ -35,13 +36,39 @@ export function ImproveDialog({
 
     setIsProcessing(true);
 
-    // Simulate GPT reprocessing
-    setTimeout(() => {
-      onImproveSuccess(questionId, feedback);
-      setIsProcessing(false);
+    try {
+      const res = await fetch(
+        "http://localhost:4000/documents/improve-question",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            questionId,
+            improvementPrompt: feedback,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Server error response:", data);
+        throw new Error(data.message || "Failed to improve question");
+      }
+
+      if (!data.rewrittenText) {
+        throw new Error("Missing rewrittenText in response");
+      }
+
+      onImproveSuccess(questionId, data.rewrittenText);
       setFeedback("");
       onOpenChange(false);
-    }, 2000);
+    } catch (err) {
+      console.error("Error improving question:", err);
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleClose = () => {
@@ -57,8 +84,7 @@ export function ImproveDialog({
         <DialogHeader>
           <DialogTitle>Improve Question</DialogTitle>
           <DialogDescription>
-            Provide feedback to improve this question. GPT will reprocess the
-            question based on your input.
+            Provide feedback to improve this question. GPT will reprocess it.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -66,7 +92,7 @@ export function ImproveDialog({
             <Label htmlFor="feedback">Feedback</Label>
             <Textarea
               id="feedback"
-              placeholder="Enter your feedback for improving this question..."
+              placeholder="Enter feedback to improve the question..."
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               disabled={isProcessing}
@@ -86,8 +112,14 @@ export function ImproveDialog({
             onClick={handleContinue}
             disabled={!feedback.trim() || isProcessing}
           >
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Continue
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Improving...
+              </>
+            ) : (
+              "Continue"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
