@@ -13,9 +13,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
-let date = new Date();
-console.log(date.toUTCString());
-
 function generateQuestionDocx(question) {
   const {
     question: qText,
