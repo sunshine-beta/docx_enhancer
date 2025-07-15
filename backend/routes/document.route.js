@@ -71,68 +71,66 @@ async function processQuestionsAsync(docId, promptTemplate) {
   if (!doc) return;
 
   const questions = doc.questions;
-  const batchSize = 50;
+  const batchSize = 10; // Tune this! Start with 3–5. Can go up to 10–20 depending on your OpenAI rate limits
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i];
+  const processBatch = async (batch, startIndex) => {
+    const promises = batch.map(async (q, idx) => {
+      const index = startIndex + idx;
 
-    const customPrompt = promptTemplate
-      .replace("[Your question here]", q.question)
-      .replace("[Choice A]", q.options[0] || "")
-      .replace("[Choice B]", q.options[1] || "")
-      .replace("[Choice C]", q.options[2] || "")
-      .replace("[Choice D]", q.options[3] || "")
-      .replace("[Letter]", q.correctAnswerRaw)
-      .replace("[Detailed explanation]", q.explanation || "")
-      .replace(
-        "references: []",
-        `references: ${JSON.stringify(q.references || [])}`
-      );
-
-    try {
-      const result = await runAssistant(customPrompt);
+      const customPrompt = promptTemplate
+        .replace("[Your question here]", q.question)
+        .replace("[Choice A]", q.options[0] || "")
+        .replace("[Choice B]", q.options[1] || "")
+        .replace("[Choice C]", q.options[2] || "")
+        .replace("[Choice D]", q.options[3] || "")
+        .replace("[Letter]", q.correctAnswerRaw)
+        .replace("[Detailed explanation]", q.explanation || "")
+        .replace(
+          "references: []",
+          `references: ${JSON.stringify(q.references || [])}`
+        );
 
       try {
-        const parsed = JSON.parse(result);
+        const result = await runAssistant(customPrompt);
+        try {
+          const parsed = JSON.parse(result);
 
-        // 🛠 Fix GPT typo: "referrences" → "references"
-        if (!parsed.references && parsed.referrences) {
-          parsed.references = parsed.referrences;
-          delete parsed.referrences;
+          if (!parsed.references && parsed.referrences) {
+            parsed.references = parsed.referrences;
+            delete parsed.referrences;
+          }
+
+          if (parsed.references && typeof parsed.references === "string") {
+            parsed.references = parsed.references
+              .split("\n")
+              .map((r) => r.trim())
+              .filter(Boolean);
+          }
+
+          questions[index].gptResponse = parsed;
+        } catch (parseErr) {
+          questions[index].gptResponse = {
+            error: "Failed to parse GPT response",
+            raw: result,
+          };
         }
-
-        // 📋 Ensure references is always an array of strings
-        if (parsed.references && typeof parsed.references === "string") {
-          parsed.references = parsed.references
-            .split("\n")
-            .map((r) => r.trim())
-            .filter(Boolean);
-        }
-
-        // ✅ Store the cleaned-up response
-        questions[i].gptResponse = parsed;
-      } catch (parseErr) {
-        console.error("❌ JSON parse failed:", parseErr);
-        questions[i].gptResponse = {
-          error: "Failed to parse GPT response",
-          raw: result,
+      } catch (err) {
+        questions[index].gptResponse = {
+          error: "Failed to generate GPT response",
         };
       }
-    } catch (err) {
-      console.error("❌ GPT failed:", err);
-      questions[i].gptResponse = {
-        error: "Failed to generate GPT response",
-      };
-    }
+    });
 
-    if ((i + 1) % batchSize === 0) {
-      console.log(
-        `✅ Processed ${i + 1} questions. Waiting before next batch...`
-      );
-      await doc.save();
-      await delay(15000);
-    }
+    await Promise.allSettled(promises);
+    await doc.save(); // Save progress after each batch
+  };
+
+  for (let i = 0; i < questions.length; i += batchSize) {
+    const batch = questions.slice(i, i + batchSize);
+    await processBatch(batch, i);
+    console.log(`✅ Processed batch ${i}–${i + batch.length}`);
+    await delay(3000); // Wait a bit between batches
   }
 
   doc.status = "completed";
