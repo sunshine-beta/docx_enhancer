@@ -3,29 +3,10 @@
 import { useEffect, useState, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { downloadDocxFromData } from "@/lib/downloadDocx";
 import { ImproveDialog } from "@/components/improve-dialog";
 import { Download } from "lucide-react";
-
-interface Question {
-  _id: string;
-  question: string;
-  choices: string[];
-  correctAnswerRaw?: string;
-  explanation?: string;
-  references?: string[];
-  rewritten?: string;
-  status: string;
-  gptResponse?:
-    | string
-    | {
-        question: string;
-        options: string[];
-        answer: string;
-        explanation: string;
-        references: string[];
-      };
-}
+import { Question } from "@/types/question";
 
 export default function BatchDetailPage({
   params: paramsPromise,
@@ -74,18 +55,13 @@ export default function BatchDetailPage({
     setImproveDialogOpen(false);
   };
 
-  const handleDownloadQuestion = (questionId: string) => {
-    const link = document.createElement("a");
-    link.href = "#";
-    link.download = `question-${questionId}.docx`;
-    link.click();
+  const handleDownloadAll = () => {
+    downloadDocxFromData(questions, `all-questions-batch-${id}.docx`);
   };
 
-  const handleDownloadAll = () => {
-    const link = document.createElement("a");
-    link.href = "#";
-    link.download = `all-questions-batch-${id}.zip`;
-    link.click();
+  const handleDownloadQuestion = (questionId: string) => {
+    const q = questions.find((q) => q._id === questionId);
+    if (q) downloadDocxFromData([q], `question-${questionId}.docx`);
   };
 
   return (
