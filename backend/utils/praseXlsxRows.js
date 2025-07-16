@@ -7,7 +7,7 @@ export function parseXlsxRows(buffer) {
 
   // Step 1: Read structured rows using headers
   const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-  console.log("📥 Raw Rows (first 5):", rawRows.slice(0, 5));
+  console.log("Raw Rows (first 5):", rawRows.slice(0, 5));
 
   // Step 2: Filter out completely empty rows
   const rows = rawRows.filter((row) =>
@@ -16,7 +16,7 @@ export function parseXlsxRows(buffer) {
     )
   );
 
-  console.log("📊 Total valid rows after filtering:", rows.length);
+  console.log("Total valid rows after filtering:", rows.length);
 
   const parsed = rows
     .map((row, rowIndex) => {
