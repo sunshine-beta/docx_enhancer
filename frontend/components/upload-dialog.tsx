@@ -1,6 +1,9 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import React, { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,9 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
 
 interface UploadDialogProps {
   open: boolean;
@@ -58,7 +58,7 @@ export function UploadDialog({
         setIsProcessing(false);
         setSelectedFile(null);
         onOpenChange(false);
-      }, 2000);
+      }, 1000);
     } catch (err) {
       console.error("Upload failed", err);
       setError("Upload failed");
