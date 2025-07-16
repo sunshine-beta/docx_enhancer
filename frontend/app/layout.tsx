@@ -1,11 +1,11 @@
+import "./globals.css";
 import type React from "react";
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
-import "./globals.css";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -16,7 +16,9 @@ export const metadata: Metadata = {
   title: "Dashboard - Document Processing",
   description:
     "Interactive dashboard for document processing and batch management",
-  generator: "v0.dev",
+  authors: [
+    { name: "ExploitEngineer" },
+  ],
 };
 
 export default function RootLayout({
@@ -30,16 +32,16 @@ export default function RootLayout({
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+            <header className="flex h-16 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
               <div className="flex items-center gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator orientation="vertical" className="mr-2 h-4" />
-                <h1 className="text-lg font-semibold">
+                <h1 className="sm:text-lg font-semibold">
                   Document Processing Dashboard
                 </h1>
               </div>
             </header>
-            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+            <div className="flex flex-col gap-4 p-4 pt-0">
               <main className="flex-1">{children}</main>
             </div>
           </SidebarInset>
