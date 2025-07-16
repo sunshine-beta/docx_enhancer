@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState, useRef } from "react";
+import { Download, Eye, RefreshCcw } from "lucide-react";
+import { UploadDialog } from "@/components/upload-dialog";
 import {
   Card,
   CardContent,
@@ -9,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -18,9 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UploadDialog } from "@/components/upload-dialog";
-import { Download, Eye, RefreshCcw } from "lucide-react";
-import Link from "next/link";
 
 interface DocumentItem {
   _id: string;
@@ -32,7 +32,8 @@ interface DocumentItem {
 const getStatusBadge = (status: DocumentItem["status"]) => {
   const colors = {
     pending: "bg-gray-100 text-gray-800 cursor-wait",
-    processing: "bg-blue-100 text-blue-800 animate-pulse",
+    processing:
+      "bg-blue-100 text-blue-800 duration-300 transition-all hover:bg-blue-600 cursor-pointer hover:text-white animate-pulse",
     completed:
       "bg-green-100 text-green-800 duration-300 transition-all hover:bg-green-600 cursor-pointer hover:text-white",
     failed:
@@ -46,7 +47,7 @@ const getStatusBadge = (status: DocumentItem["status"]) => {
   );
 };
 
-const defaultPrompt = `You are an expert question generator. Based on the provided document content, create multiple-choice questions that:
+const defaultPrompt: string = `You are an expert question generator. Based on the provided document content, create multiple-choice questions that:
 
 1. Test comprehension of key concepts
 2. Include 4 answer choices (A, B, C, D)
@@ -65,7 +66,7 @@ Explanation: [Detailed explanation]
 references: []`;
 
 export default function DocumentPage() {
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
 
   const iconRef = useRef<SVGSVGElement | null>(null);
@@ -74,6 +75,11 @@ export default function DocumentPage() {
   const fetchDocuments = async () => {
     try {
       const res = await fetch("http://localhost:4000/documents");
+
+      if (!res.ok) {
+        throw new Error(`HTTP Response error ${res.statusText}`);
+      }
+
       const data = await res.json();
       setDocuments(data);
     } catch (err) {
@@ -83,8 +89,6 @@ export default function DocumentPage() {
 
   useEffect(() => {
     fetchDocuments();
-    const interval = setInterval(fetchDocuments, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   const getLatestPrompt = async () => {
@@ -159,7 +163,7 @@ export default function DocumentPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="w-full flex items-center justify-between">
+          <CardTitle className="flex w-full items-center justify-between">
             Uploaded Documents
             <RefreshCcw
               ref={iconRef}
@@ -190,20 +194,18 @@ export default function DocumentPage() {
                   <TableCell>{doc.date}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {doc.status === "completed" && doc._id && (
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/documents/${doc._id}`}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Link>
-                        </Button>
-                      )}
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/documents/${doc._id}`}>
+                          <Eye className="mr-1 h-4 w-4" />
+                          View
+                        </Link>
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownload(doc.filename)}
                       >
-                        <Download className="h-4 w-4 mr-1" />
+                        <Download className="mr-1 h-4 w-4" />
                         Download
                       </Button>
                     </div>
