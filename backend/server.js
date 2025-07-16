@@ -1,9 +1,9 @@
-import express from "express";
 import cors from "cors";
+import express from "express";
 import * as dotenv from "dotenv";
 import connectDB from "./config/mongoose.connection.js";
-import { router as documentRoute } from "./routes/document.route.js";
 import { router as promptRoute } from "./routes/prompt.route.js";
+import { router as documentRoute } from "./routes/document.route.js";
 
 // setup dotenv package to use environment variables
 dotenv.config();
