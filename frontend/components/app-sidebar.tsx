@@ -1,9 +1,8 @@
 "use client";
 
-import { FileText, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
+import { FileText, LucideIcon, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,7 +17,13 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-const items = [
+interface SidebarItem {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+}
+
+const items: SidebarItem[] = [
   {
     title: "Batch",
     url: "/",
@@ -52,8 +57,8 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
+              {items.map((item: SidebarItem, idx: number) => (
+                <SidebarMenuItem key={idx}>
                   <SidebarMenuButton asChild isActive={pathname === item.url}>
                     <Link href={item.url}>
                       <item.icon />
