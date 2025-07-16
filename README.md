@@ -140,7 +140,7 @@ DocxEnhancer is an AI-powered web application that allows users to upload `.docx
 
 - Checks the Assistant's settings
 - Reads the current Thread
-- Calls the model (like GPT-4)
+- Calls the model (like GPT-4) 
 - Sends back the Assistant's reply
 
 # 💬 4. What are Messages ?
