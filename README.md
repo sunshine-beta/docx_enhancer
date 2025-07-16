@@ -140,7 +140,7 @@ DocxEnhancer is an AI-powered web application that allows users to upload `.docx
 
 - Checks the Assistant's settings
 - Reads the current Thread
-- Calls the model (like GPT-4) 
+- Calls the model (like GPT-4)
 - Sends back the Assistant's reply
 
 # 💬 4. What are Messages ?
@@ -159,6 +159,8 @@ DocxEnhancer is an AI-powered web application that allows users to upload `.docx
 1. You add a message: "Explain closures in JavaScript"
 2. You start a run -> assistant reads all messages
 3. It replies with an explanation -> new assistant message is added
+
+---
 
 ## ⚙️ Setup Instructions
 
