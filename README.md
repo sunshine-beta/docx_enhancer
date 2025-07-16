@@ -6,22 +6,24 @@ DocxEnhancer is an AI-powered web application that allows users to upload `.docx
 
 ## ✨ Features
 
-* Upload `.docx` files with:
+- Upload `.docx` files with:
 
   ```
   Question:
   [MCQ options]
   Explanation:
   ```
-* Automatically enriches the document by adding:
 
-  * ✅ Correct Answer
-  * 💡 Enhanced Explanation
-  * 🔗 Reference (optional)
-* Edit generated explanations or transform content into AI prompts
-* Download the enhanced `.docx` file
-* Powered by OpenAI's Assistant API
-* Real-time processing with `Next.js`, `Express`, and `Node.js`
+- Automatically enriches the document by adding:
+
+  - ✅ Correct Answer
+  - 💡 Enhanced Explanation
+  - 🔗 Reference (optional)
+
+- Edit generated explanations or transform content into AI prompts
+- Download the enhanced `.docx` file
+- Powered by OpenAI's Assistant API
+- Real-time processing with `Next.js`, `Express`, and `Node.js`
 
 ---
 
@@ -94,6 +96,70 @@ DocxEnhancer is an AI-powered web application that allows users to upload `.docx
 
 ---
 
+## Things which you have to know when using openai API
+
+# 🧠 1. What is Assistant ?
+
+## Definition
+
+`An assistant is a custom versoin of ChatGPT that you've configured for a specific task. Think of it like a tailored chatbot or agent that has its own:`
+
+- Instructions (behavior/personality/goals).
+- Tools (like code interpreter, retrival, or your own APIs).
+- Files (optional context).
+- Model (GPT-4, GPT-3.5, etc).
+
+`Once you create an Assistant, it gets a persistent ID - you reuse that assistant anytime you want that behavior.`
+
+# 🧵 2. What is a Thread ?
+
+## Definition
+
+`A Thread is a conversation between a user and an assistant. It stores:`
+
+- All messages (user + assistant)
+- All runs (calls to GPT to generate response)
+
+### 🔁 Why you need Threads
+
+`Each user can have multiple sessions, and Threads help you:`
+
+- Separate conversations
+- Resume them later
+- Keep context over time
+
+# 🚀 3. What is Run ?
+
+## Definition
+
+`A Run is an event that triggers the Assistant to process the messages in a Thread and respond.`
+
+> It's like saying: "Hey assistant, process this conversation and reply."
+
+### 🧭 Internally, a Run does
+
+- Checks the Assistant's settings
+- Reads the current Thread
+- Calls the model (like GPT-4)
+- Sends back the Assistant's reply
+
+# 💬 4. What are Messages ?
+
+## Definition
+
+`Messages are the individual chat messages in a Thread.`
+
+- A message has a `role`: either `user` or `assistant`
+- A message has `content`: the text (or files, in advanced cases)
+
+### 🧱 Messages Stack
+
+`Let’s say you want to chat with the assistant about JavaScript:`
+
+1. You add a message: "Explain closures in JavaScript"
+2. You start a run -> assistant reads all messages
+3. It replies with an explanation -> new assistant message is added
+
 ## ⚙️ Setup Instructions
 
 1. **Clone the repo:**
@@ -154,9 +220,9 @@ Used for secure communication.
 
 > The output will add:
 
-* **Answer: C. TLS**
-* **Explanation: HTTPS uses TLS (Transport Layer Security) to encrypt communications between web clients and servers.**
-* **Reference: [Wikipedia - HTTPS](https://en.wikipedia.org/wiki/HTTPS)**
+- **Answer: C. TLS**
+- **Explanation: HTTPS uses TLS (Transport Layer Security) to encrypt communications between web clients and servers.**
+- **Reference: [Wikipedia - HTTPS](https://en.wikipedia.org/wiki/HTTPS)**
 
 ---
 
