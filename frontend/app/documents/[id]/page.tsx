@@ -27,6 +27,8 @@ export default function BatchDetailPage({
   }
 
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+
     const fetchQuestions = async () => {
       try {
         const res = await fetch(`http://localhost:4000/documents/${id}`);
@@ -36,9 +38,12 @@ export default function BatchDetailPage({
 
         if (Array.isArray(data.questions)) {
           setQuestions(data.questions);
-        } else {
-          console.warn("Invalid questions array:", data);
-          setQuestions([]);
+
+          const isProcessing = data.questions.some(
+            (q: any) => !q.gptResponse || !q.gptResponse.question,
+          );
+
+          if (!isProcessing && interval) clearInterval(interval);
         }
       } catch (err) {
         console.error("Error fetching questions:", err);
@@ -46,6 +51,10 @@ export default function BatchDetailPage({
     };
 
     fetchQuestions();
+
+    interval = setInterval(fetchQuestions, 5000);
+
+    return () => clearInterval(interval);
   }, [id]);
 
   const handleImprove = (questionId: string) => {
@@ -108,7 +117,7 @@ export default function BatchDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Processed Questions</h1>
           <p className="text-gray-600">Batch ID: {id}</p>
@@ -152,89 +161,100 @@ export default function BatchDetailPage({
                 <CardTitle className="text-lg">Question {index + 1}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Question Text */}
-                <div>
-                  <p className="font-medium whitespace-pre-line">
-                    {gptData?.question || question.question}
+                {/* GPT not ready */}
+                {!gptData?.question ? (
+                  <p className="italic text-muted-foreground">
+                    ⏳ Processing with GPT...
                   </p>
-                </div>
-
-                {/* Options */}
-                {Array.isArray(gptData?.options) &&
-                  gptData.options.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold">Options:</p>
-                      {gptData.options.map((choice, choiceIndex) => {
-                        const choiceLetter = String.fromCharCode(
-                          65 + choiceIndex
-                        );
-                        return (
-                          <div
-                            key={choiceIndex}
-                            className="p-3 rounded-lg border bg-gray-50"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium self-start">
-                                {choiceLetter}.
-                              </span>
-                              <span>{choice}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                {/* Correct Answer */}
-                {correctLetters.length > 0 && (
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-sm font-semibold text-green-900 mb-1">
-                      Correct Answer:
-                    </p>
-                    <p className="text-green-800 text-sm">
-                      {correctLetters.map((letter) => `${letter}`).join(", ")}
-                    </p>
-                  </div>
-                )}
-
-                {/* Explanation */}
-                {gptData?.explanation && (
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-semibold text-blue-900 mb-1">
-                      Explanation:
-                    </p>
-                    <p className="text-sm text-blue-800 whitespace-pre-line">
-                      {gptData.explanation}
-                    </p>
-                  </div>
-                )}
-
-                {/* References */}
-                {Array.isArray(gptData?.references) &&
-                  gptData.references.length > 0 &&
-                  gptData.references.some((r) => !!r && r !== "None") && (
-                    <div className="p-3 bg-yellow-50 rounded-lg">
-                      <p className="text-sm font-semibold text-yellow-900 mb-1">
-                        References:
+                ) : (
+                  <>
+                    {/* Question Text */}
+                    <div>
+                      <p className="whitespace-pre-line font-medium">
+                        {gptData.question}
                       </p>
-                      <ul className="list-disc list-inside text-sm text-yellow-800">
-                        {gptData.references.map((ref, idx) =>
-                          ref && ref !== "None" ? (
-                            <li key={idx}>
-                              <a
-                                href={ref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline"
-                              >
-                                {ref}
-                              </a>
-                            </li>
-                          ) : null
-                        )}
-                      </ul>
                     </div>
-                  )}
+
+                    {/* Options */}
+                    {Array.isArray(gptData.options) &&
+                      gptData.options.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold">Options:</p>
+                          {gptData.options.map((choice, choiceIndex) => {
+                            const choiceLetter = String.fromCharCode(
+                              65 + choiceIndex,
+                            );
+                            return (
+                              <div
+                                key={choiceIndex}
+                                className="rounded-lg border bg-gray-50 p-3"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="self-start font-medium">
+                                    {choiceLetter}.
+                                  </span>
+                                  <span>{choice}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                    {/* Correct Answer */}
+                    {correctLetters.length > 0 && (
+                      <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                        <p className="mb-1 text-sm font-semibold text-green-900">
+                          Correct Answer:
+                        </p>
+                        <p className="text-sm text-green-800">
+                          {correctLetters.join(", ")}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Explanation */}
+                    {gptData.explanation && (
+                      <div className="rounded-lg bg-blue-50 p-3">
+                        <p className="mb-1 text-sm font-semibold text-blue-900">
+                          Explanation:
+                        </p>
+                        <p className="whitespace-pre-line text-sm text-blue-800">
+                          {gptData.explanation}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* References */}
+                    {Array.isArray(gptData.references) &&
+                      gptData.references.length > 0 &&
+                      gptData.references.some((r) => !!r && r !== "None") && (
+                        <div className="rounded-lg bg-yellow-50 p-3">
+                          <p className="mb-1 text-sm font-semibold text-yellow-900">
+                            References:
+                          </p>
+                          <ul className="list-inside list-disc text-sm text-yellow-800">
+                            {gptData.references.map(
+                              (ref, idx) =>
+                                ref &&
+                                ref !== "None" && (
+                                  <li key={idx}>
+                                    <a
+                                      href={ref}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="underline"
+                                    >
+                                      {ref}
+                                    </a>
+                                  </li>
+                                ),
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                  </>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-2">

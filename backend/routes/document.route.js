@@ -1,17 +1,25 @@
-import express from "express";
 import multer from "multer";
-import mongoose from "mongoose";
-import { DocumentModel } from "../models/document.model.js";
-import { parseXlsxRows } from "../utils/praseXlsxRows.js";
-import { PromptModel } from "../models/prompt.model.js";
-import { OpenAI } from "openai";
 import dotenv from "dotenv";
+import express from "express";
+import mongoose from "mongoose";
+import { OpenAI } from "openai";
+import { PromptModel } from "../models/prompt.model.js";
+import { parseXlsxRows } from "../utils/praseXlsxRows.js";
+import { DocumentModel } from "../models/document.model.js";
 
+// set-up environment variables
 dotenv.config();
 
+// Initialize router
 const router = express.Router();
+
+// multer to upload file on memoryStorage
 const upload = multer({ storage: multer.memoryStorage() });
+
+// openai API_KEY initialized
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// const ASSISTNAT_ID initialized
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
 function extractAnswerFromText(text) {
@@ -264,29 +272,35 @@ ${improvementPrompt}`.trim();
   }
 });
 
+// File upload route
 router.post("/upload", upload.single("file"), async (req, res) => {
   console.log("/upload endpoint hit");
 
+  const {
+    body: { prompt: incomingPrompt },
+    file,
+  } = req;
+
   try {
-    if (!req.file) {
+    if (!file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    let prompt = req.body.prompt;
+    let prompt = incomingPrompt;
     if (!prompt) {
       const latestPrompt = await PromptModel.findOne().sort({ updatedAt: -1 });
       prompt =
         latestPrompt?.content ||
-        `You are provided with a full MSRA SJT case (scenario, options, answer, explanation)...`;
+        `You are provided with a full MSRA SJT case (scenario, options, answer, explanation) & references`;
     }
 
-    const parsed = parseXlsxRows(req.file.buffer);
+    const parsed = parseXlsxRows(file.buffer);
     if (!parsed.length) {
       return res.status(400).json({ message: "No data found in file" });
     }
 
     const doc = await DocumentModel.create({
-      filename: req.file.originalname,
+      filename: file.originalname,
       questions: parsed.map((q) => ({
         ...q,
         gptResponse: null,
