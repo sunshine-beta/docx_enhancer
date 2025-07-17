@@ -18,7 +18,7 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: "https://docx-app-frontend-production.up.railway.app/",
+    origin: "https://docx-app-frontend-production.up.railway.app",
   })
 );
 
