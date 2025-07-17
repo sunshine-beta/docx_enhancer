@@ -68,6 +68,9 @@ references: []`;
 export default function DocumentPage() {
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [downloadedDocIds, setDownloadedDocIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const iconRef = useRef<SVGSVGElement | null>(null);
 
@@ -140,11 +143,33 @@ export default function DocumentPage() {
     }, 300);
   };
 
-  const handleDownload = (filename: string) => {
-    const link = document.createElement("a");
-    link.href = "#";
-    link.download = filename;
-    link.click();
+  const handleDownload = async (docId: string) => {
+    try {
+      const res = await fetch(`http://localhost:4000/documents/${docId}`);
+      if (!res.ok) throw new Error("Failed to fetch questions");
+
+      const fullDoc = await res.json();
+
+      const ready = fullDoc.questions.every(
+        (q: any) =>
+          q.gptResponse &&
+          typeof q.gptResponse === "object" &&
+          "question" in q.gptResponse,
+      );
+
+      if (!ready) {
+        alert(
+          "This document is still processing. Please wait until it's complete.",
+        );
+        return;
+      }
+
+      const { downloadDocxFromData } = await import("@/lib/downloadDocx");
+      downloadDocxFromData(fullDoc.questions, `batch-${docId}.docx`);
+    } catch (err) {
+      console.error(`Failed to download document ${docId}:`, err);
+      alert("An error occurred while downloading the document.");
+    }
   };
 
   return (
@@ -203,7 +228,7 @@ export default function DocumentPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDownload(doc.filename)}
+                        onClick={() => handleDownload(doc._id)}
                       >
                         <Download className="mr-1 h-4 w-4" />
                         Download
