@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { downloadDocxFromData } from "@/lib/downloadDocx";
-import { ImproveDialog } from "@/components/improve-dialog";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import { Download } from "lucide-react";
 import { Question } from "@/types/question";
+import { Button } from "@/components/ui/button";
+import { useEffect, useState, use } from "react";
+import { downloadDocxFromData } from "@/lib/downloadDocx";
+import { Packer, Document, Paragraph, TextRun } from "docx";
+import { ImproveDialog } from "@/components/improve-dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface GptResponse {
   question: string;
@@ -74,8 +77,99 @@ export default function BatchDetailPage({
     setImproveDialogOpen(false);
   };
 
-  const handleDownloadAll = () => {
-    downloadDocxFromData(questions, `all-questions-batch-${id}.docx`);
+  const handleDownloadAll = async () => {
+    const zip = new JSZip();
+
+    for (const [index, q] of questions.entries()) {
+      const gpt =
+        typeof q.gptResponse === "string"
+          ? JSON.parse(q.gptResponse)
+          : q.gptResponse;
+
+      if (!gpt?.question) continue;
+
+      const doc = new Document({
+        sections: [
+          {
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `Question ${index + 1}:`,
+                    bold: true,
+                    size: 28,
+                  }),
+                  new TextRun("\n"),
+                  new TextRun({ text: gpt.question, size: 24 }),
+                ],
+                spacing: { after: 300 },
+              }),
+              ...gpt.options.map(
+                (option: string, i: number) =>
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: `${String.fromCharCode(65 + i)}) ${option}`,
+                        size: 22,
+                      }),
+                    ],
+                  }),
+              ),
+              ...(gpt.answer
+                ? [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `Correct Answer: ${gpt.answer}`,
+                          bold: true,
+                          size: 24,
+                        }),
+                      ],
+                      spacing: { before: 300 },
+                    }),
+                  ]
+                : []),
+              ...(gpt.explanation
+                ? [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: `Explanation: ${gpt.explanation}`,
+                          size: 22,
+                        }),
+                      ],
+                      spacing: { before: 200 },
+                    }),
+                  ]
+                : []),
+              ...(gpt.references?.length
+                ? [
+                    new Paragraph({
+                      spacing: { before: 200 },
+                      children: [
+                        new TextRun({ text: "References:", bold: true }),
+                      ],
+                    }),
+                    ...gpt.references.map(
+                      (ref: string) =>
+                        new Paragraph({
+                          text: `- ${ref}`,
+                          spacing: { after: 100 },
+                        }),
+                    ),
+                  ]
+                : []),
+            ],
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      zip.file(`question-${index + 1}.docx`, blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    saveAs(zipBlob, `batch-${id}-questions.zip`);
   };
 
   const handleDownloadQuestion = (questionId: string) => {
