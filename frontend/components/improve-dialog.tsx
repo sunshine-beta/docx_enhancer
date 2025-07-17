@@ -15,11 +15,19 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
+interface GptResponse {
+  question: string;
+  options: string[];
+  answer: string;
+  explanation: string;
+  references: string[];
+}
+
 interface ImproveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   questionId: string;
-  onImproveSuccess: (questionId: string, rewrittenText: string) => void;
+  onImproveSuccess: (questionId: string, newGptResponse: GptResponse) => void;
 }
 
 export function ImproveDialog({
@@ -46,7 +54,7 @@ export function ImproveDialog({
             questionId,
             improvementPrompt: feedback,
           }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -56,11 +64,18 @@ export function ImproveDialog({
         throw new Error(data.message || "Failed to improve question");
       }
 
-      if (!data.rewrittenText) {
-        throw new Error("Missing rewrittenText in response");
+      let gptResponse = data.gptResponse;
+
+      if (!gptResponse) {
+        throw new Error("Missing gptResponse from server");
       }
 
-      onImproveSuccess(questionId, data.rewrittenText);
+      // ✅ Normalize the references field (correct any misspelling)
+      if (!gptResponse.references && Array.isArray(gptResponse.referrences)) {
+        gptResponse.references = gptResponse.referrences;
+      }
+
+      onImproveSuccess(questionId, gptResponse);
       setFeedback("");
       onOpenChange(false);
     } catch (err) {

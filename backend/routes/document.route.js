@@ -233,12 +233,8 @@ router.post("/improve-question", async (req, res) => {
       latestPrompt?.content || "You are provided with a full MSRA SJT case...";
 
     const basePrompt = buildPromptFromTemplate(promptTemplate, question);
-
-    const finalPrompt = `${basePrompt}
-
----
-User Feedback for Improvement:
-${improvementPrompt}`.trim();
+    const finalPrompt =
+      `${basePrompt}\n\n---\nUser Feedback:\n${improvementPrompt}`.trim();
 
     const gptResponse = await runAssistant(finalPrompt);
 
@@ -253,10 +249,18 @@ ${improvementPrompt}`.trim();
         });
       }
 
+      // ✅ Normalize: Fix incorrect spelling if present
+      if (!parsed.references && Array.isArray(parsed.referrences)) {
+        parsed.references = parsed.referrences;
+      }
+      delete parsed.referrences; // ❌ Clean bad field if exists
+
+      // ✅ Save the updated gptResponse
       question.gptResponse = parsed;
       await doc.save();
 
-      res.json({ rewrittenText: parsed.question || "" });
+      // ✅ Send it back
+      res.json({ gptResponse: parsed });
     } catch (err) {
       console.error("GPT response not JSON:", gptResponse);
       return res.status(500).json({
@@ -266,9 +270,10 @@ ${improvementPrompt}`.trim();
     }
   } catch (err) {
     console.error("Error improving question:", err);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: err.message });
+    res.status(500).json({
+      message: "Internal server error",
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 });
 

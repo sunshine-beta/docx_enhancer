@@ -8,6 +8,14 @@ import { ImproveDialog } from "@/components/improve-dialog";
 import { Download } from "lucide-react";
 import { Question } from "@/types/question";
 
+interface GptResponse {
+  question: string;
+  options: string[];
+  answer: string;
+  explanation: string;
+  references: string[];
+}
+
 export default function BatchDetailPage({
   params: paramsPromise,
 }: {
@@ -17,14 +25,6 @@ export default function BatchDetailPage({
   const [questions, setQuestions] = useState<Question[]>([]);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
-
-  interface GptResponse {
-    question: string;
-    options: string[];
-    answer: string;
-    explanation: string;
-    references: string[];
-  }
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -62,47 +62,15 @@ export default function BatchDetailPage({
     setImproveDialogOpen(true);
   };
 
-  const handleImproveSuccess = (questionId: string, rewrittenText: string) => {
-    const updated = questions.map((q) => {
-      if (q._id !== questionId) return q;
-
-      let updatedGptResponse: GptResponse;
-
-      if (typeof q.gptResponse === "string") {
-        try {
-          updatedGptResponse = JSON.parse(q.gptResponse) as GptResponse;
-          updatedGptResponse.question = rewrittenText;
-        } catch {
-          updatedGptResponse = {
-            question: rewrittenText,
-            options: [],
-            answer: "",
-            explanation: "",
-            references: [],
-          };
-        }
-      } else if (typeof q.gptResponse === "object" && q.gptResponse !== null) {
-        updatedGptResponse = {
-          ...(q.gptResponse as GptResponse),
-          question: rewrittenText,
-        };
-      } else {
-        updatedGptResponse = {
-          question: rewrittenText,
-          options: [],
-          answer: "",
-          explanation: "",
-          references: [],
-        };
-      }
-
-      return {
-        ...q,
-        gptResponse: updatedGptResponse,
-      };
-    });
-
-    setQuestions(updated);
+  const handleImproveSuccess = (
+    questionId: string,
+    newGptResponse: GptResponse,
+  ) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q._id === questionId ? { ...q, gptResponse: newGptResponse } : q,
+      ),
+    );
     setImproveDialogOpen(false);
   };
 
@@ -130,15 +98,7 @@ export default function BatchDetailPage({
 
       <div className="grid gap-6">
         {questions.map((question, index) => {
-          let gptData: {
-            question: string;
-            options: string[];
-            answer: string;
-            explanation: string;
-            references: string[];
-          } | null = null;
-
-          console.log("GPT RAW Response:", question.gptResponse);
+          let gptData: GptResponse | null = null;
 
           try {
             gptData =
@@ -161,21 +121,18 @@ export default function BatchDetailPage({
                 <CardTitle className="text-lg">Question {index + 1}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* GPT not ready */}
                 {!gptData?.question ? (
                   <p className="italic text-muted-foreground">
                     ⏳ Processing with GPT...
                   </p>
                 ) : (
                   <>
-                    {/* Question Text */}
                     <div>
                       <p className="whitespace-pre-line font-medium">
                         {gptData.question}
                       </p>
                     </div>
 
-                    {/* Options */}
                     {Array.isArray(gptData.options) &&
                       gptData.options.length > 0 && (
                         <div className="space-y-2">
@@ -201,7 +158,6 @@ export default function BatchDetailPage({
                         </div>
                       )}
 
-                    {/* Correct Answer */}
                     {correctLetters.length > 0 && (
                       <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                         <p className="mb-1 text-sm font-semibold text-green-900">
@@ -213,7 +169,6 @@ export default function BatchDetailPage({
                       </div>
                     )}
 
-                    {/* Explanation */}
                     {gptData.explanation && (
                       <div className="rounded-lg bg-blue-50 p-3">
                         <p className="mb-1 text-sm font-semibold text-blue-900">
@@ -225,7 +180,6 @@ export default function BatchDetailPage({
                       </div>
                     )}
 
-                    {/* References */}
                     {Array.isArray(gptData.references) &&
                       gptData.references.length > 0 &&
                       gptData.references.some((r) => !!r && r !== "None") && (
@@ -256,7 +210,6 @@ export default function BatchDetailPage({
                   </>
                 )}
 
-                {/* Actions */}
                 <div className="flex gap-2 pt-2">
                   <Button
                     variant="outline"
