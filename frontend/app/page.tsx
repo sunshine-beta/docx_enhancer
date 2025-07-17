@@ -77,7 +77,7 @@ export default function DocumentPage() {
   // Get All Documents
   const fetchDocuments = async () => {
     try {
-      const res = await fetch("http://localhost:4000/documents");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents`);
 
       if (!res.ok) {
         throw new Error(`HTTP Response error ${res.statusText}`);
@@ -96,7 +96,7 @@ export default function DocumentPage() {
 
   const getLatestPrompt = async () => {
     try {
-      const res = await fetch("http://localhost:4000/prompt");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/prompt`);
       if (!res.ok) throw new Error("No prompt found");
 
       const data = await res.json();
@@ -116,7 +116,7 @@ export default function DocumentPage() {
       formData.append("file", file);
       formData.append("prompt", prompt);
 
-      const res = await fetch("http://localhost:4000/documents/upload", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents/upload`, {
         method: "POST",
         body: formData,
       });
@@ -145,7 +145,7 @@ export default function DocumentPage() {
 
   const handleDownload = async (docId: string) => {
     try {
-      const res = await fetch(`http://localhost:4000/documents/${docId}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents/${docId}`);
       if (!res.ok) throw new Error("Failed to fetch questions");
 
       const fullDoc = await res.json();

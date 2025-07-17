@@ -46,7 +46,7 @@ export function ImproveDialog({
 
     try {
       const res = await fetch(
-        "http://localhost:4000/documents/improve-question",
+        `${process.env.NEXT_PUBLIC_URL}/documents/improve-question`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -53,7 +53,7 @@ export default function PromptPage() {
   useEffect(() => {
     const fetchPrompt = async () => {
       try {
-        const res = await fetch("http://localhost:4000/prompt");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/prompt`);
         if (!res.ok) throw new Error("Failed to fetch prompt");
         const data = await res.json();
         setPrompt(data.content || defaultPrompt); // fallback to default if empty
@@ -70,7 +70,7 @@ export default function PromptPage() {
     setIsUpdating(true);
     setUpdateSuccess(false);
 
-    await fetch("http://localhost:4000/prompt", {
+    await fetch(`${process.env.NEXT_PUBLIC_URL}/prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: prompt }), // ✅ key must be "content"

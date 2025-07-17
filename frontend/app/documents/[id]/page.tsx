@@ -34,7 +34,7 @@ export default function BatchDetailPage({
 
     const fetchQuestions = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/documents/${id}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents/${id}`);
         const data = await res.json();
 
         if (!res.ok) throw new Error("Failed to fetch questions");
