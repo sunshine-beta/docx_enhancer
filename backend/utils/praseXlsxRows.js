@@ -26,21 +26,41 @@ export function parseXlsxRows(buffer) {
       const explanation = (row["Explanation"] || "").toString().trim();
       const references = (row["References"] || "").toString().trim();
 
-      if (!question || !optionsText || !correctAnswer) {
+      if (!question) {
         console.warn(
-          `⚠️ Skipping row ${rowIndex + 2} - missing required fields`
+          `⚠️ Skipping row ${
+            rowIndex + 2
+          } - missing 'Question' field. Value: "${row["Question"]}"`
+        );
+        return null;
+      }
+      if (!optionsText) {
+        console.warn(
+          `⚠️ Skipping row ${rowIndex + 2} - missing 'Options' field. Value: "${
+            row["Options"]
+          }"`
+        );
+        return null;
+      }
+      if (!correctAnswer) {
+        console.warn(
+          `⚠️ Skipping row ${rowIndex + 2} - missing 'Answer' field. Value: "${
+            row["Answer"]
+          }"`
         );
         return null;
       }
 
       const options = optionsText
-        .split(/(?=[A-E][\).]\s)/g) // Matches A) or A. followed by space
-        .map((opt) => opt.replace(/^[A-E][\).]\s*/, "").trim())
+        .split(/(?=[A-E][\s\.\–\-\)\u2013])/g) // Lookahead for A-E followed by space, dot, en dash, hyphen, or parenthesis
+        .map((opt) => opt.replace(/^[A-E][\s\.\–\-\)\u2013]+/, "").trim()) // Remove marker at start
         .filter((opt) => opt.length > 0);
 
       if (!Array.isArray(options) || options.length < 2) {
         console.warn(
-          `⚠️ Skipping row ${rowIndex + 2} - invalid or too few options`
+          `⚠️ Skipping row ${
+            rowIndex + 2
+          } - invalid or too few options in 'Options' field. Value: "${optionsText}"`
         );
         return null;
       }
