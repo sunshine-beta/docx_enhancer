@@ -6,6 +6,7 @@ import { OpenAI } from "openai";
 import { PromptModel } from "../models/prompt.model.js";
 import { parseXlsxRows } from "../utils/praseXlsxRows.js";
 import { DocumentModel } from "../models/document.model.js";
+import { isValidGptResponse } from "../utils/validateGptResponse.js";
 
 // set-up environment variables
 dotenv.config();
@@ -180,7 +181,15 @@ async function processQuestionsAsync(docId, promptTemplate) {
               .filter(Boolean);
           }
 
-          questions[index].gptResponse = parsed;
+          if (isValidGptResponse(parsed)) {
+            questions[index].gptResponse = parsed;
+          } else {
+            questions[index].gptResponse = {
+              error: "Incomplete or invalid GPT response structure",
+              raw: parsed,
+            };
+          }
+
           console.log(
             `✅ Final parsed answer for Q${index + 1}:`,
             parsed.answer
@@ -256,7 +265,15 @@ router.post("/improve-question", async (req, res) => {
       delete parsed.referrences; // ❌ Clean bad field if exists
 
       // ✅ Save the updated gptResponse
-      question.gptResponse = parsed;
+      if (isValidGptResponse(parsed)) {
+        question.gptResponse = parsed;
+      } else {
+        question.gptResponse = {
+          error: "Incomplete or invalid GPT response structure",
+          raw: parsed,
+        };
+      }
+
       await doc.save();
 
       // ✅ Send it back

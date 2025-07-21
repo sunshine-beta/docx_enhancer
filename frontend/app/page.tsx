@@ -68,9 +68,6 @@ references: []`;
 export default function DocumentPage() {
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [downloadedDocIds, setDownloadedDocIds] = useState<Set<string>>(
-    new Set(),
-  );
 
   const iconRef = useRef<SVGSVGElement | null>(null);
 

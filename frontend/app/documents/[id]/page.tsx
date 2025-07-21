@@ -1,30 +1,21 @@
 "use client";
 
-import JSZip from "jszip";
-import { saveAs } from "file-saver";
 import { Download } from "lucide-react";
-import { Question } from "@/types/question";
+import type { Question } from "@/types/question";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, use } from "react";
 import { downloadDocxFromData } from "@/lib/downloadDocx";
-import { Packer, Document, Paragraph, TextRun } from "docx";
+import { downloadAllQuestionsAsZip } from "@/lib/downloadAllQuestionAsZip";
 import { ImproveDialog } from "@/components/improve-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface GptResponse {
-  question: string;
-  options: string[];
-  answer: string;
-  explanation: string;
-  references: string[];
-}
+import type { GptResponse } from "@/types/gpt-response";
 
 export default function BatchDetailPage({
   params: paramsPromise,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(paramsPromise);
+  const id = use(paramsPromise).id;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
@@ -34,7 +25,9 @@ export default function BatchDetailPage({
 
     const fetchQuestions = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents/${id}`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_URL}/documents/${id}`,
+        );
         const data = await res.json();
 
         if (!res.ok) throw new Error("Failed to fetch questions");
@@ -78,98 +71,7 @@ export default function BatchDetailPage({
   };
 
   const handleDownloadAll = async () => {
-    const zip = new JSZip();
-
-    for (const [index, q] of questions.entries()) {
-      const gpt =
-        typeof q.gptResponse === "string"
-          ? JSON.parse(q.gptResponse)
-          : q.gptResponse;
-
-      if (!gpt?.question) continue;
-
-      const doc = new Document({
-        sections: [
-          {
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Question ${index + 1}:`,
-                    bold: true,
-                    size: 28,
-                  }),
-                  new TextRun("\n"),
-                  new TextRun({ text: gpt.question, size: 24 }),
-                ],
-                spacing: { after: 300 },
-              }),
-              ...gpt.options.map(
-                (option: string, i: number) =>
-                  new Paragraph({
-                    children: [
-                      new TextRun({
-                        text: `${String.fromCharCode(65 + i)}) ${option}`,
-                        size: 22,
-                      }),
-                    ],
-                  }),
-              ),
-              ...(gpt.answer
-                ? [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: `Correct Answer: ${gpt.answer}`,
-                          bold: true,
-                          size: 24,
-                        }),
-                      ],
-                      spacing: { before: 300 },
-                    }),
-                  ]
-                : []),
-              ...(gpt.explanation
-                ? [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: `Explanation: ${gpt.explanation}`,
-                          size: 22,
-                        }),
-                      ],
-                      spacing: { before: 200 },
-                    }),
-                  ]
-                : []),
-              ...(gpt.references?.length
-                ? [
-                    new Paragraph({
-                      spacing: { before: 200 },
-                      children: [
-                        new TextRun({ text: "References:", bold: true }),
-                      ],
-                    }),
-                    ...gpt.references.map(
-                      (ref: string) =>
-                        new Paragraph({
-                          text: `- ${ref}`,
-                          spacing: { after: 100 },
-                        }),
-                    ),
-                  ]
-                : []),
-            ],
-          },
-        ],
-      });
-
-      const blob = await Packer.toBlob(doc);
-      zip.file(`question-${index + 1}.docx`, blob);
-    }
-
-    const zipBlob = await zip.generateAsync({ type: "blob" });
-    saveAs(zipBlob, `batch-${id}-questions.zip`);
+    await downloadAllQuestionsAsZip(questions, id);
   };
 
   const handleDownloadQuestion = (questionId: string) => {
@@ -182,7 +84,7 @@ export default function BatchDetailPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Processed Questions</h1>
-          <p className="text-gray-600">Batch ID: {id}</p>
+          <p className="text-gray-600">Batch ID: {String(id)}</p>
         </div>
         <Button onClick={handleDownloadAll}>
           <Download className="mr-2 h-4 w-4" />
@@ -223,7 +125,7 @@ export default function BatchDetailPage({
                   <>
                     <div>
                       <p className="whitespace-pre-line font-medium">
-                        {gptData.question}
+                        {gptData.question.scenario}
                       </p>
                     </div>
 
@@ -269,7 +171,7 @@ export default function BatchDetailPage({
                           Explanation:
                         </p>
                         <p className="whitespace-pre-line text-sm text-blue-800">
-                          {gptData.explanation}
+                          {gptData.explanation.paragraph}
                         </p>
                       </div>
                     )}
@@ -282,22 +184,47 @@ export default function BatchDetailPage({
                             References:
                           </p>
                           <ul className="list-inside list-disc text-sm text-yellow-800">
-                            {gptData.references.map(
-                              (ref, idx) =>
-                                ref &&
-                                ref !== "None" && (
+                            {gptData.references.map((ref, idx) => {
+                              if (!ref || ref === "None") return null;
+
+                              if (
+                                typeof ref === "object" &&
+                                ref !== null &&
+                                "link" in ref &&
+                                "title" in ref
+                              ) {
+                                const typedRef = ref as {
+                                  title: string;
+                                  link: string;
+                                };
+                                return (
                                   <li key={idx}>
                                     <a
-                                      href={ref}
+                                      href={typedRef.link || "#"}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="underline"
                                     >
-                                      {ref}
+                                      {typedRef.title}
                                     </a>
                                   </li>
-                                ),
-                            )}
+                                );
+                              }
+
+                              // fallback if ref is plain string
+                              return (
+                                <li key={idx}>
+                                  <a
+                                    href={ref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline"
+                                  >
+                                    {ref}
+                                  </a>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       )}

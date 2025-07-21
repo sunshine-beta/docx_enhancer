@@ -6,7 +6,37 @@ const questionSchema = new mongoose.Schema({
   correctAnswerRaw: { type: String },
   explanation: { type: String },
   references: { type: [String] },
-  gptResponse: { type: mongoose.Schema.Types.Mixed, default: null },
+  gptResponse: {
+    type: {
+      question: {
+        scenario: String,
+        instruction: String,
+      },
+      options: [String],
+      answer: String,
+      explanation: {
+        quote: {
+          quote: String,
+          citation: String,
+        },
+        paragraph: String,
+        option_breakdown: [
+          {
+            key: String,
+            label: String,
+            explanation: String,
+          },
+        ],
+      },
+      references: [
+        {
+          title: String,
+          link: String,
+        },
+      ],
+    },
+    default: null,
+  },
 });
 
 export { questionSchema };

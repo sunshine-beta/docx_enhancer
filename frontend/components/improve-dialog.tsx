@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import type { GptResponse } from "@/types/gpt-response";
 import {
   Dialog,
   DialogContent,
@@ -10,18 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
-import { toast } from "react-hot-toast";
-
-interface GptResponse {
-  question: string;
-  options: string[];
-  answer: string;
-  explanation: string;
-  references: string[];
-}
 
 interface ImproveDialogProps {
   open: boolean;
@@ -41,7 +34,6 @@ export function ImproveDialog({
 
   const handleContinue = async () => {
     if (!feedback.trim()) return;
-
     setIsProcessing(true);
 
     try {
@@ -64,18 +56,22 @@ export function ImproveDialog({
         throw new Error(data.message || "Failed to improve question");
       }
 
-      let gptResponse = data.gptResponse;
+      let gptResponse: GptResponse = data.gptResponse;
 
-      if (!gptResponse) {
-        throw new Error("Missing gptResponse from server");
+      if (!gptResponse || typeof gptResponse !== "object") {
+        throw new Error("Missing or invalid gptResponse from server");
       }
 
-      // ✅ Normalize the references field (correct any misspelling)
-      if (!gptResponse.references && Array.isArray(gptResponse.referrences)) {
-        gptResponse.references = gptResponse.referrences;
+      // Optional normalization (if backend sends wrong spelling)
+      if (
+        !gptResponse.references &&
+        Array.isArray((gptResponse as any).referrences)
+      ) {
+        gptResponse.references = (gptResponse as any).referrences;
       }
 
       onImproveSuccess(questionId, gptResponse);
+
       setFeedback("");
       onOpenChange(false);
     } catch (err) {
