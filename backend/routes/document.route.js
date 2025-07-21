@@ -83,12 +83,17 @@ function buildPromptFromTemplate(promptTemplate, question) {
     references = [],
   } = question;
 
+  const choiceLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const formattedChoices = options
+    .map((opt, index) => {
+      const label = choiceLabels[index] || `(${index + 1})`;
+      return `${label}. ${opt}`;
+    })
+    .join("\n");
+
   return promptTemplate
     .replace("[Your question here]", qText)
-    .replace("[Choice A]", options[0] || "")
-    .replace("[Choice B]", options[1] || "")
-    .replace("[Choice C]", options[2] || "")
-    .replace("[Choice D]", options[3] || "")
+    .replace("[Choices]", formattedChoices)
     .replace("[Letter]", correctAnswerRaw)
     .replace("[Detailed explanation]", explanation)
     .replace("references: []", `references: ${JSON.stringify(references)}`);
@@ -311,9 +316,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     let prompt = incomingPrompt;
     if (!prompt) {
       const latestPrompt = await PromptModel.findOne().sort({ updatedAt: -1 });
-      prompt =
-        latestPrompt?.content ||
-        `You are provided with a full MSRA SJT case (scenario, options, answer, explanation) & references`;
+      prompt = latestPrompt?.content || ``;
     }
 
     const parsed = parseXlsxRows(file.buffer);
