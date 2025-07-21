@@ -15,7 +15,7 @@ export async function downloadDocxFromData(
   questions: Question[],
   fileName: string,
 ): Promise<void> {
-  const WHITE_COLOR = "FFFFFF";
+  const BLACK_COLOR = "000000";
   const BIG_SPACE = 550;
   const SMALL_SPACE = 250;
 
@@ -41,7 +41,7 @@ export async function downloadDocxFromData(
                 new TextRun({
                   text: "Question:",
                   bold: true,
-                  color: WHITE_COLOR,
+                  color: BLACK_COLOR,
                 }),
               ],
               heading: HeadingLevel.HEADING_2,
@@ -54,7 +54,7 @@ export async function downloadDocxFromData(
               children: [
                 new TextRun({
                   text: gpt?.question?.scenario || "",
-                  color: WHITE_COLOR,
+                  color: BLACK_COLOR,
                 }),
               ],
               spacing: { after: BIG_SPACE },
@@ -66,7 +66,7 @@ export async function downloadDocxFromData(
               children: [
                 new TextRun({
                   text: gpt?.question?.instruction || "",
-                  color: WHITE_COLOR,
+                  color: BLACK_COLOR,
                 }),
               ],
               spacing: { after: BIG_SPACE },
@@ -88,7 +88,7 @@ export async function downloadDocxFromData(
                 new TextRun({
                   text: "Options:",
                   bold: true,
-                  color: WHITE_COLOR,
+                  color: BLACK_COLOR,
                 }),
               ],
               heading: HeadingLevel.HEADING_3,
@@ -103,7 +103,7 @@ export async function downloadDocxFromData(
                 children: [
                   new TextRun({
                     text: `${letter}. ${option}`,
-                    color: WHITE_COLOR,
+                    color: BLACK_COLOR,
                   }),
                 ],
                 spacing: { after: SMALL_SPACE },
@@ -114,7 +114,7 @@ export async function downloadDocxFromData(
           content.push(
             new Paragraph({
               border: {
-                bottom: { style: BorderStyle.SINGLE, size: 2, color: "ffffff" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
               },
               spacing: { after: BIG_SPACE },
             }),
@@ -126,7 +126,7 @@ export async function downloadDocxFromData(
                 new TextRun({
                   text: "Answer:",
                   bold: true,
-                  color: WHITE_COLOR,
+                  color: BLACK_COLOR,
                 }),
               ],
               heading: HeadingLevel.HEADING_3,
@@ -137,7 +137,7 @@ export async function downloadDocxFromData(
           content.push(
             new Paragraph({
               children: [
-                new TextRun({ text: gpt?.answer || "", color: WHITE_COLOR }),
+                new TextRun({ text: gpt?.answer || "", color: BLACK_COLOR }),
               ],
               spacing: { after: BIG_SPACE },
             }),
@@ -146,7 +146,7 @@ export async function downloadDocxFromData(
           content.push(
             new Paragraph({
               border: {
-                bottom: { style: BorderStyle.SINGLE, size: 2, color: "ffffff" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
               },
               spacing: { after: BIG_SPACE },
             }),
@@ -158,7 +158,7 @@ export async function downloadDocxFromData(
                 new TextRun({
                   text: "Explanation:",
                   bold: true,
-                  color: WHITE_COLOR,
+                  color: BLACK_COLOR,
                 }),
               ],
               heading: HeadingLevel.HEADING_3,
@@ -178,7 +178,7 @@ export async function downloadDocxFromData(
                       text: `"${quote.quote}"`,
                       bold: true,
                       italics: true,
-                      color: WHITE_COLOR,
+                      color: BLACK_COLOR,
                     }),
                   ],
                   spacing: { after: SMALL_SPACE },
@@ -191,7 +191,7 @@ export async function downloadDocxFromData(
                     new TextRun({
                       text: `(${quote.citation})`,
                       italics: true,
-                      color: WHITE_COLOR,
+                      color: BLACK_COLOR,
                     }),
                   ],
                   spacing: { after: SMALL_SPACE },
@@ -203,7 +203,7 @@ export async function downloadDocxFromData(
               content.push(
                 new Paragraph({
                   children: [
-                    new TextRun({ text: paragraph, color: WHITE_COLOR }),
+                    new TextRun({ text: paragraph, color: BLACK_COLOR }),
                   ],
                   spacing: { after: SMALL_SPACE },
                 }),
@@ -217,11 +217,11 @@ export async function downloadDocxFromData(
                   children: [
                     new TextRun({
                       text: `Option ${item.key} ${item.label ? `(${item.label})` : ""}`,
-                      color: WHITE_COLOR,
+                      color: BLACK_COLOR,
                     }),
                     new TextRun({
                       text: `${item.explanation}`,
-                      color: WHITE_COLOR,
+                      color: BLACK_COLOR,
                     }),
                   ],
                   spacing: { after: SMALL_SPACE },
@@ -233,7 +233,7 @@ export async function downloadDocxFromData(
           content.push(
             new Paragraph({
               border: {
-                bottom: { style: BorderStyle.SINGLE, size: 2, color: "ffffff" },
+                bottom: { style: BorderStyle.SINGLE, size: 2, color: "000000" },
               },
               spacing: { after: BIG_SPACE },
             }),
@@ -246,7 +246,7 @@ export async function downloadDocxFromData(
                   new TextRun({
                     text: "References:",
                     bold: true,
-                    color: WHITE_COLOR,
+                    color: BLACK_COLOR,
                   }),
                 ],
                 heading: HeadingLevel.HEADING_3,
@@ -284,7 +284,7 @@ export async function downloadDocxFromData(
                     children: [
                       new TextRun({
                         text: `• ${String(ref)}`,
-                        color: WHITE_COLOR,
+                        color: BLACK_COLOR,
                       }),
                     ],
                     spacing: { after: SMALL_SPACE },
