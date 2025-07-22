@@ -52,28 +52,6 @@ function extractAnswerFromText(text) {
   return "";
 }
 
-function generateQuestionDocx(question) {
-  const {
-    question: qText,
-    options,
-    correctAnswerRaw,
-    explanation,
-    references,
-  } = question;
-
-  const text = `
-    Question: ${qText}\n
-    A) ${options[0] || ""}\n
-    B) ${options[1] || ""}\n
-    C) ${options[2] || ""}\n
-    D) ${options[3] || ""}\n
-    Correct Answer: ${correctAnswerRaw || ""}\n
-    Explanation: ${explanation || ""}\n
-    References: ${(references || []).join(", ")}
-  `;
-  return Buffer.from(text, "utf-8");
-}
-
 function buildPromptFromTemplate(promptTemplate, question) {
   const {
     question: qText = "",
@@ -83,7 +61,7 @@ function buildPromptFromTemplate(promptTemplate, question) {
     references = [],
   } = question;
 
-  const choiceLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const choiceLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   const formattedChoices = options
     .map((opt, index) => {
       const label = choiceLabels[index] || `(${index + 1})`;
@@ -91,12 +69,30 @@ function buildPromptFromTemplate(promptTemplate, question) {
     })
     .join("\n");
 
-  return promptTemplate
-    .replace("[Your question here]", qText)
-    .replace("[Choices]", formattedChoices)
-    .replace("[Letter]", correctAnswerRaw)
-    .replace("[Detailed explanation]", explanation)
-    .replace("references: []", `references: ${JSON.stringify(references)}`);
+  let promptTemplateNew = `
+[Instruction]:
+${promptTemplate}
+
+[Your question here]:
+${qText}
+
+[Choices]:
+${formattedChoices}
+
+[Correct Answer]:
+${correctAnswerRaw}
+
+[Explanation]:
+${explanation}
+
+[References]:
+${JSON.stringify(references)}
+`;
+
+
+  console.log(promptTemplateNew);
+
+  return promptTemplateNew;
 }
 
 async function runAssistant(messageText) {
@@ -132,16 +128,27 @@ async function pollUntilComplete(threadId, runId) {
 
 async function processQuestionsAsync(docId, promptTemplate) {
   const doc = await DocumentModel.findById(docId);
-  if (!doc) return;
+  if (!doc) {
+    console.error("Document not found:", docId);
+    return;
+  }
 
   const questions = doc.questions;
   const batchSize = 10;
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const processBatch = async (batch, startIndex) => {
+    console.log(`Processing batch ${startIndex}–${startIndex + batch.length}`);
+
     const promises = batch.map(async (q, idx) => {
+      console.log("Inside processBatch for question:", q.question);
+
       const index = startIndex + idx;
       const customPrompt = buildPromptFromTemplate(promptTemplate, q);
+
+      console.log("Custom Prompt for Q" + (index + 1) + ":", customPrompt);
+
+      console.log(`🔍 Processing Q${index + 1}:`, q.question);
 
       try {
         const result = await runAssistant(customPrompt);
@@ -168,7 +175,7 @@ async function processQuestionsAsync(docId, promptTemplate) {
               console.log(
                 "🔎 Still missing — fallback to full GPT response text"
               );
-              extractedAnswer = extractAnswerFromText(result); // fallback to full raw GPT response
+              extractedAnswer = extractAnswerFromText(result, q._validLabels); // fallback to full raw GPT response
             }
           }
 
@@ -212,12 +219,17 @@ async function processQuestionsAsync(docId, promptTemplate) {
       }
     });
 
+    console.log("🔄 Waiting batch promises...");
+
     await Promise.allSettled(promises);
     await doc.save(); // Save progress after each batch
   };
 
   for (let i = 0; i < questions.length; i += batchSize) {
     const batch = questions.slice(i, i + batchSize);
+
+    console.log(`🔄 Processing batch ${i}–${i + batch.length}...`);
+
     await processBatch(batch, i);
     console.log(`✅ Processed batch ${i}–${i + batch.length}`);
     await delay(3000);
@@ -242,13 +254,7 @@ router.post("/improve-question", async (req, res) => {
     if (!question)
       return res.status(404).json({ message: "Question not found" });
 
-    const latestPrompt = await PromptModel.findOne().sort({ updatedAt: -1 });
-    const promptTemplate =
-      latestPrompt?.content || "You are provided with a full MSRA SJT case...";
-
-    const basePrompt = buildPromptFromTemplate(promptTemplate, question);
-    const finalPrompt =
-      `${basePrompt}\n\n---\nUser Feedback:\n${improvementPrompt}`.trim();
+    const finalPrompt = buildPromptFromTemplate(improvementPrompt, question);
 
     const gptResponse = await runAssistant(finalPrompt);
 
@@ -313,11 +319,8 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    console.log(incomingPrompt);
     let prompt = incomingPrompt;
-    if (!prompt) {
-      const latestPrompt = await PromptModel.findOne().sort({ updatedAt: -1 });
-      prompt = latestPrompt?.content || ``;
-    }
 
     const parsed = parseXlsxRows(file.buffer);
     if (!parsed.length) {

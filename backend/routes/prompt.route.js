@@ -3,8 +3,6 @@ import { PromptModel } from "../models/prompt.model.js";
 
 const router = express.Router();
 
-const defaultPrompt = ``;
-
 router.get("/", async (_, res) => {
   try {
     const latest = await PromptModel.findOne().sort({ updatedAt: -1 });
