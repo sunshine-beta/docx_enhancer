@@ -191,7 +191,7 @@ export default function BatchDetailPage({
                                 (breakdown, idx: number) => (
                                   <li key={idx}>
                                     <span className="font-semibold mr-2">
-                                      Option{breakdown.key} {breakdown.label}:
+                                      Option {breakdown.key} {breakdown.label}:
                                     </span>
                                     {breakdown.explanation}
                                   </li>
