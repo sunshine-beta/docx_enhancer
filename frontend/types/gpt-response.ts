@@ -6,11 +6,15 @@ export interface GptResponse {
   options: string[];
   answer: string;
   explanation: {
+    quote: {
+      quote: String;
+      citation: String;
+    };
     paragraph: string;
     option_breakdown: {
-      option: string;
+      key: string;
+      label: string;
       explanation: string;
-      correct: boolean;
     }[];
   };
   references: string[];

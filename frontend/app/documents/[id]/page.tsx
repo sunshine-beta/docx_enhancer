@@ -123,9 +123,12 @@ export default function BatchDetailPage({
                   </p>
                 ) : (
                   <>
-                    <div>
+                    <div className="space-y-3">
                       <p className="whitespace-pre-line font-medium">
                         {gptData.question.scenario}
+                      </p>
+                      <p className="whitespace-pre-line font-medium">
+                        {gptData.question.instruction}
                       </p>
                     </div>
 
@@ -167,12 +170,35 @@ export default function BatchDetailPage({
 
                     {gptData.explanation && (
                       <div className="rounded-lg bg-blue-50 p-3">
-                        <p className="mb-1 text-sm font-semibold text-blue-900">
-                          Explanation:
-                        </p>
-                        <p className="whitespace-pre-line text-sm text-blue-800">
-                          {gptData.explanation.paragraph}
-                        </p>
+                        <div className="mb-8 space-y-3">
+                          <p className="mb-1 text-sm font-semibold text-blue-900">
+                            Explanation:
+                          </p>
+                          <p className="mb-1 text-sm font-semibold text-blue-900">
+                            {gptData.explanation.quote.quote}
+                          </p>
+                          <p className="mb-1 text-sm font-semibold text-blue-900">
+                            {gptData.explanation.quote.citation}
+                          </p>
+                          <p className="whitespace-pre-line text-sm text-blue-800">
+                            {gptData.explanation.paragraph}
+                          </p>
+                        </div>
+                        {gptData.explanation.option_breakdown &&
+                          gptData.explanation.option_breakdown.length > 0 && (
+                            <ul className="mt-2 list-inside list-disc text-sm text-blue-800 space-y-2">
+                              {gptData.explanation.option_breakdown.map(
+                                (breakdown, idx: number) => (
+                                  <li key={idx}>
+                                    <span className="font-semibold mr-2">
+                                      Option{breakdown.key} {breakdown.label}:
+                                    </span>
+                                    {breakdown.explanation}
+                                  </li>
+                                ),
+                              )}
+                            </ul>
+                          )}
                       </div>
                     )}
 
