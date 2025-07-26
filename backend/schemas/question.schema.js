@@ -6,6 +6,7 @@ const questionSchema = new mongoose.Schema({
   correctAnswerRaw: { type: String },
   explanation: { type: String },
   references: { type: [String] },
+  threadId: { type: String },
   gptResponse: {
     type: {
       question: {

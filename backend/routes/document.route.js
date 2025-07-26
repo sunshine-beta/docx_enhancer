@@ -89,20 +89,47 @@ ${explanation}
 ${JSON.stringify(references)}
 `;
 
-
   console.log(promptTemplateNew);
 
   return promptTemplateNew;
 }
 
-async function runAssistant(messageText) {
-  const run = await openai.beta.threads.createAndRun({
-    assistant_id: ASSISTANT_ID,
-    thread: { messages: [{ role: "user", content: messageText }] },
-  });
-  const responseText = await pollUntilComplete(run.thread_id, run.id);
-  console.log("GPT-4o-mini Response:", responseText);
-  return responseText;
+async function runAssistant(messageText, threadId = null, options = {}) {
+  const { sendInstruction = true } = options; // default to true if not provided
+
+  const content = sendInstruction
+    ? messageText
+    : typeof messageText === "string"
+    ? messageText
+    : ""; // fallback to string if necessary
+
+  if (threadId) {
+    console.log("Improve Question ThreadID:", threadId);
+    await openai.beta.threads.messages.create(threadId, {
+      role: "user",
+      content,
+    });
+
+    const run = await openai.beta.threads.runs.create(threadId, {
+      assistant_id: ASSISTANT_ID,
+    });
+
+    const responseText = await pollUntilComplete(threadId, run.id);
+
+    return { responseText, threadId };
+  } else {
+    const thread = await openai.beta.threads.create({
+      messages: [{ role: "user", content }],
+    });
+
+    const run = await openai.beta.threads.runs.create(thread.id, {
+      assistant_id: ASSISTANT_ID,
+    });
+
+    const responseText = await pollUntilComplete(thread.id, run.id);
+
+    return { responseText, threadId: thread.id };
+  }
 }
 
 async function pollUntilComplete(threadId, runId) {
@@ -110,6 +137,8 @@ async function pollUntilComplete(threadId, runId) {
     const r = await openai.beta.threads.runs.retrieve(runId, {
       thread_id: threadId,
     });
+
+    console.log("Run status:", r);
 
     if (r.status === "completed") {
       const msgs = await openai.beta.threads.messages.list(threadId);
@@ -151,11 +180,19 @@ async function processQuestionsAsync(docId, promptTemplate) {
       console.log(`🔍 Processing Q${index + 1}:`, q.question);
 
       try {
-        const result = await runAssistant(customPrompt);
+        const { responseText, threadId } = await runAssistant(customPrompt);
+
+        console.log("ThreadID", threadId);
+        console.log("RESULT:", responseText);
+
+        if (!q.threadId) {
+          q.threadId = threadId;
+        }
+        console.log("Question:", q);
         let parsed;
 
         try {
-          parsed = JSON.parse(result);
+          parsed = JSON.parse(responseText);
 
           if (!parsed || typeof parsed !== "object" || !parsed.question) {
             throw new Error("GPT response missing expected fields");
@@ -175,7 +212,7 @@ async function processQuestionsAsync(docId, promptTemplate) {
               console.log(
                 "🔎 Still missing — fallback to full GPT response text"
               );
-              extractedAnswer = extractAnswerFromText(result, q._validLabels); // fallback to full raw GPT response
+              extractedAnswer = extractAnswerFromText(responseText);
             }
           }
 
@@ -209,7 +246,7 @@ async function processQuestionsAsync(docId, promptTemplate) {
         } catch (parseErr) {
           questions[index].gptResponse = {
             error: parseErr.message || "Failed to parse GPT response",
-            raw: result,
+            raw: responseText,
           };
         }
       } catch (err) {
@@ -254,13 +291,37 @@ router.post("/improve-question", async (req, res) => {
     if (!question)
       return res.status(404).json({ message: "Question not found" });
 
-    const finalPrompt = buildPromptFromTemplate(improvementPrompt, question);
+    // ⚠️ Ensure threadId exists (if not, cannot continue)
+    if (!question.threadId) {
+      return res.status(400).json({
+        message: "This question does not have an associated GPT thread yet.",
+      });
+    }
 
-    const gptResponse = await runAssistant(finalPrompt);
+    // ✅ Use only the feedback text as the new user message
+    const { responseText } = await runAssistant(
+      improvementPrompt,
+      question.threadId,
+      {
+        sendInstruction: false,
+      }
+    );
 
+    if (!responseText) {
+      console.error("❌ No response from GPT during improvement.");
+      return res.status(500).json({
+        message: "No response from GPT assistant",
+        raw: null,
+      });
+    }
+
+    // ✅ Parse first valid JSON from GPT response
     let parsed;
     try {
-      parsed = JSON.parse(gptResponse);
+      const matches = responseText.match(/\{[\s\S]*?\}(?=\s*\{|\s*$)/g);
+      const jsonStr = matches?.[0] ?? responseText;
+
+      parsed = JSON.parse(jsonStr);
 
       if (!parsed || typeof parsed !== "object" || !parsed.question) {
         return res.status(400).json({
@@ -269,35 +330,38 @@ router.post("/improve-question", async (req, res) => {
         });
       }
 
-      // ✅ Normalize: Fix incorrect spelling if present
+      // 🔧 Normalize
       if (!parsed.references && Array.isArray(parsed.referrences)) {
         parsed.references = parsed.referrences;
       }
-      delete parsed.referrences; // ❌ Clean bad field if exists
+      delete parsed.referrences;
 
-      // ✅ Save the updated gptResponse
-      if (isValidGptResponse(parsed)) {
-        question.gptResponse = parsed;
-      } else {
-        question.gptResponse = {
-          error: "Incomplete or invalid GPT response structure",
-          raw: parsed,
-        };
+      if (typeof parsed.references === "string") {
+        parsed.references = parsed.references
+          .split("\n")
+          .map((r) => r.trim())
+          .filter(Boolean);
       }
 
-      await doc.save();
+      // ✅ Save the improved response
+      question.gptResponse = isValidGptResponse(parsed)
+        ? parsed
+        : {
+            error: "Invalid GPT structure",
+            raw: parsed,
+          };
 
-      // ✅ Send it back
+      await doc.save();
       res.json({ gptResponse: parsed });
     } catch (err) {
-      console.error("GPT response not JSON:", gptResponse);
+      console.error("❌ GPT response not valid JSON:", responseText);
       return res.status(500).json({
         message: "Failed to parse GPT response",
-        raw: gptResponse,
+        raw: responseText,
       });
     }
   } catch (err) {
-    console.error("Error improving question:", err);
+    console.error("❌ Server error during improve-question:", err);
     res.status(500).json({
       message: "Internal server error",
       error: err instanceof Error ? err.message : String(err),
