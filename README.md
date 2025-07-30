@@ -85,11 +85,6 @@ DocxEnhancer is an AI-powered web application that allows users to upload `.docx
     ├── pnpm-lock.yaml
     ├── postcss.config.mjs
     ├── public
-    │   ├── placeholder.jpg
-    │   ├── placeholder-logo.png
-    │   ├── placeholder-logo.svg
-    │   ├── placeholder.svg
-    │   └── placeholder-user.jpg
     ├── tailwind.config.ts
     └── tsconfig.json
 ```
