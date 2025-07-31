@@ -28,6 +28,7 @@ export default function BatchDetailPage({
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
 
   const fetchDocuments = async () => {
     try {
@@ -85,6 +86,46 @@ export default function BatchDetailPage({
     setSelectedQuestionId(questionId);
     setImproveDialogOpen(true);
   };
+
+  const handleRegenerateQuestion = async (questionId: string) => {
+    setRegeneratingIds((prev) => [...prev, questionId]);
+
+    const updatedGptResponse = await regenerateQuestion(questionId);
+
+    if (updatedGptResponse) {
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q._id === questionId ? { ...q, gptResponse: updatedGptResponse } : q,
+        ),
+      );
+    }
+
+    setRegeneratingIds((prev) => prev.filter((id) => id !== questionId));
+  };
+
+  async function regenerateQuestion(questionId: string) {
+    try {
+      const url = `${process.env.NEXT_PUBLIC_URL}/documents/regenerate-question`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ questionId }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Response Error, ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      console.log("Regenerated question:", data);
+      return data.gptResponse;
+    } catch (err) {
+      console.error("Error regenerating question:", err);
+      return null;
+    }
+  }
 
   const handleImproveSuccess = (
     questionId: string,
@@ -145,7 +186,8 @@ export default function BatchDetailPage({
                 <CardTitle className="text-lg">Question {index + 1}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!gptData?.question ? (
+                {!gptData?.question ||
+                regeneratingIds.includes(question._id) ? (
                   <p className="italic text-muted-foreground">
                     ⏳ Processing with GPT...
                   </p>
@@ -305,8 +347,14 @@ export default function BatchDetailPage({
                       document._id === id
                     ) {
                       return (
-                        <Button key={idx} variant="outline">
-                          Regenrate
+                        <Button
+                          key={idx}
+                          variant="outline"
+                          onClick={() => handleRegenerateQuestion(question._id)}
+                        >
+                          {regeneratingIds.includes(question._id)
+                            ? "Regenerating..."
+                            : "Regenerate"}
                         </Button>
                       );
                     }

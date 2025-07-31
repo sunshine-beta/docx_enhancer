@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
 import { OpenAI } from "openai";
-import { PromptModel } from "../models/prompt.model.js";
 import { parseXlsxRows } from "../utils/praseXlsxRows.js";
 import { DocumentModel } from "../models/document.model.js";
 import { isValidGptResponse } from "../utils/validateGptResponse.js";
@@ -23,12 +22,23 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // const ASSISTNAT_ID initialized
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
 
+const DEFAULT_PROMPT_TEMPLATE = `
+You are a professional exam content reviewer. Your job is to analyze the multiple-choice question below, improve it if necessary, and output a revised question in a structured JSON format with the following fields:
+- question: the improved question text
+- options: revised options (A–E)
+- answer: the correct option(s)
+- explanation: explanation for the correct answer
+- references: optional list of references or links
+
+Only return JSON.
+`;
+
 function extractAnswerFromText(text) {
   console.log("🔍 Extracting answer from text:\n", text);
 
   // Look for common patterns
   const correctAnswerMatch = text.match(
-    /Correct Answer[:\-]?\s*([A-E](?:[\s,]+[A-E])*)/i
+    /Correct Answer[:\-]?\s*([A-E](?:[\s,]+[A-E])*)/i,
   );
   if (correctAnswerMatch) {
     console.log("✅ Found Correct Answer line:", correctAnswerMatch[1]);
@@ -100,8 +110,8 @@ async function runAssistant(messageText, threadId = null, options = {}) {
   const content = sendInstruction
     ? messageText
     : typeof messageText === "string"
-    ? messageText
-    : ""; // fallback to string if necessary
+      ? messageText
+      : ""; // fallback to string if necessary
 
   if (threadId) {
     console.log("Improve Question ThreadID:", threadId);
@@ -145,7 +155,7 @@ async function pollUntilComplete(threadId, runId) {
       return msgs.data
         .filter((m) => m.role === "assistant")
         .flatMap((m) =>
-          m.content.filter((c) => c.type === "text").map((c) => c.text.value)
+          m.content.filter((c) => c.type === "text").map((c) => c.text.value),
         )
         .join("\n");
     }
@@ -210,7 +220,7 @@ async function processQuestionsAsync(docId, promptTemplate) {
             extractedAnswer = extractAnswerFromText(explanationText);
             if (!extractedAnswer) {
               console.log(
-                "🔎 Still missing — fallback to full GPT response text"
+                "🔎 Still missing — fallback to full GPT response text",
               );
               extractedAnswer = extractAnswerFromText(responseText);
             }
@@ -241,7 +251,7 @@ async function processQuestionsAsync(docId, promptTemplate) {
 
           console.log(
             `✅ Final parsed answer for Q${index + 1}:`,
-            parsed.answer
+            parsed.answer,
           );
         } catch (parseErr) {
           questions[index].gptResponse = {
@@ -304,7 +314,7 @@ router.post("/improve-question", async (req, res) => {
       question.threadId,
       {
         sendInstruction: false,
-      }
+      },
     );
 
     if (!responseText) {
@@ -369,6 +379,50 @@ router.post("/improve-question", async (req, res) => {
   }
 });
 
+router.post("/regenerate-question", async (req, res) => {
+  const { questionId } = req.body;
+
+  if (!questionId) {
+    return res.status(400).json({ message: "Missing questionId" });
+  }
+
+  try {
+    const doc = await DocumentModel.findOne({ "questions._id": questionId });
+    if (!doc) return res.status(404).json({ message: "Document not found" });
+
+    const question = doc.questions.id(questionId);
+    if (!question)
+      return res.status(404).json({ message: "Question not found" });
+
+    const promptTemplate = DEFAULT_PROMPT_TEMPLATE;
+    const prompt = buildPromptFromTemplate(promptTemplate, question);
+
+    const { responseText, threadId } = await runAssistant(prompt);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch (e) {
+      parsed = {
+        question: { scenario: "Unknown", instruction: "Unknown" },
+        explanation: { paragraph: responseText },
+      };
+    }
+
+    if (!question.threadId) {
+      question.threadId = threadId;
+    }
+
+    question.gptResponse = parsed;
+    await doc.save();
+
+    res.json({ gptResponse: parsed });
+  } catch (err) {
+    console.error("❌ Error during regenerate-question:", err);
+    res.status(500).json({ message: "Internal error" });
+  }
+});
+
 // File upload route
 router.post("/upload", upload.single("file"), async (req, res) => {
   console.log("/upload endpoint hit");
@@ -384,7 +438,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     }
 
     console.log(incomingPrompt);
-    let prompt = incomingPrompt;
+    let prompt = incomingPrompt || DEFAULT_PROMPT_TEMPLATE;
 
     const parsed = parseXlsxRows(file.buffer);
     if (!parsed.length) {
