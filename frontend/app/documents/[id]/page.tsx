@@ -21,7 +21,6 @@ export default function BatchDetailPage({
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
   const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
-  const [isProcessing, setIsProcessing] = useState<boolean>(true);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -41,8 +40,6 @@ export default function BatchDetailPage({
           const processingNow = data.questions.some(
             (q: any) => !q.gptResponse || !q.gptResponse.question,
           );
-
-          setIsProcessing(processingNow);
 
           if (!processingNow && interval) {
             clearInterval(interval);
@@ -320,7 +317,18 @@ export default function BatchDetailPage({
                     Download
                   </Button>
 
-                  {!isProcessing && (
+                  {questions.every((q) => {
+                    try {
+                      const gpt =
+                        typeof q.gptResponse === "string"
+                          ? JSON.parse(q.gptResponse)
+                          : q.gptResponse;
+
+                      return gpt && gpt.question;
+                    } catch {
+                      return false;
+                    }
+                  }) && (
                     <Button
                       variant="outline"
                       onClick={() => handleRegenerateQuestion(question._id)}
