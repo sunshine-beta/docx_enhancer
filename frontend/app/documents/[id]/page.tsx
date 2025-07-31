@@ -10,13 +10,6 @@ import { ImproveDialog } from "@/components/improve-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { GptResponse } from "@/types/gpt-response";
 
-interface DocumentItem {
-  _id: string;
-  filename: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  date: string;
-}
-
 export default function BatchDetailPage({
   params: paramsPromise,
 }: {
@@ -27,27 +20,8 @@ export default function BatchDetailPage({
   const [questions, setQuestions] = useState<Question[]>([]);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
-
-  const fetchDocuments = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents`);
-
-      if (!res.ok) {
-        throw new Error(`HTTP Response error ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      setDocuments(data);
-    } catch (err) {
-      console.error("Error fetching documents", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
+  const [isProcessing, setIsProcessing] = useState<boolean>(true);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -68,7 +42,10 @@ export default function BatchDetailPage({
             (q: any) => !q.gptResponse || !q.gptResponse.question,
           );
 
-          if (!isProcessing && interval) clearInterval(interval);
+          if (!isProcessing && interval) {
+            clearInterval(interval);
+            setIsProcessing(isProcessing);
+          }
         }
       } catch (err) {
         console.error("Error fetching questions:", err);
@@ -341,24 +318,17 @@ export default function BatchDetailPage({
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
-                  {documents.map(function (document, idx: number) {
-                    if (
-                      document.status === "completed" &&
-                      document._id === id
-                    ) {
-                      return (
-                        <Button
-                          key={idx}
-                          variant="outline"
-                          onClick={() => handleRegenerateQuestion(question._id)}
-                        >
-                          {regeneratingIds.includes(question._id)
-                            ? "Regenerating..."
-                            : "Regenerate"}
-                        </Button>
-                      );
-                    }
-                  })}
+
+                  {!isProcessing && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleRegenerateQuestion(question._id)}
+                    >
+                      {regeneratingIds.includes(question._id)
+                        ? "Regenerating..."
+                        : "Regenerate"}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
