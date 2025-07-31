@@ -38,13 +38,14 @@ export default function BatchDetailPage({
         if (Array.isArray(data.questions)) {
           setQuestions(data.questions);
 
-          const isProcessing = data.questions.some(
+          const processingNow = data.questions.some(
             (q: any) => !q.gptResponse || !q.gptResponse.question,
           );
 
-          if (!isProcessing && interval) {
+          setIsProcessing(processingNow);
+
+          if (!processingNow && interval) {
             clearInterval(interval);
-            setIsProcessing(isProcessing);
           }
         }
       } catch (err) {
