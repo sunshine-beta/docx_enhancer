@@ -21,7 +21,7 @@ export default function BatchDetailPage({
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
   const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
-  const [isProcessing, setIsProcessing] = useState<boolean>(true);
+  const [isDocumentComplete, setIsDocumentCompleted] = useState<boolean>(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -37,14 +37,13 @@ export default function BatchDetailPage({
 
         if (Array.isArray(data.questions)) {
           setQuestions(data.questions);
+          console.log("status", data.status);
+          const completed = data.status === "completed";
 
-          const processingNow = data.questions.some(
-            (q: any) => !q.gptResponse || !q.gptResponse.question,
-          );
+          console.log("Completed:", completed);
 
-          setIsProcessing(processingNow);
-
-          if (!processingNow && interval) {
+          setIsDocumentCompleted(completed);
+          if (completed && interval) {
             clearInterval(interval);
           }
         }
@@ -320,16 +319,20 @@ export default function BatchDetailPage({
                     Download
                   </Button>
 
-                  {!isProcessing && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleRegenerateQuestion(question._id)}
-                    >
-                      {regeneratingIds.includes(question._id)
-                        ? "Regenerating..."
-                        : "Regenerate"}
-                    </Button>
-                  )}
+                  {(() => {
+                    console.log("Complete Status", isDocumentComplete);
+                    return true;
+                  })() &&
+                    isDocumentComplete && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleRegenerateQuestion(question._id)}
+                      >
+                        {regeneratingIds.includes(question._id)
+                          ? "Regenerating..."
+                          : "Regenerate"}
+                      </Button>
+                    )}
                 </div>
               </CardContent>
             </Card>
