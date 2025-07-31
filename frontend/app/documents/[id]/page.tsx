@@ -10,15 +10,43 @@ import { ImproveDialog } from "@/components/improve-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { GptResponse } from "@/types/gpt-response";
 
+interface DocumentItem {
+  _id: string;
+  filename: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  date: string;
+}
+
 export default function BatchDetailPage({
   params: paramsPromise,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const id = use(paramsPromise).id;
+  console.log("Doc ID", id);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+
+  const fetchDocuments = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_URL}/documents`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP Response error ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      setDocuments(data);
+    } catch (err) {
+      console.error("Error fetching documents", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -186,11 +214,11 @@ export default function BatchDetailPage({
                         </div>
                         {gptData.explanation.option_breakdown &&
                           gptData.explanation.option_breakdown.length > 0 && (
-                            <ul className="mt-2 list-inside list-disc text-sm text-blue-800 space-y-2">
+                            <ul className="mt-2 list-inside list-disc space-y-2 text-sm text-blue-800">
                               {gptData.explanation.option_breakdown.map(
                                 (breakdown, idx: number) => (
                                   <li key={idx}>
-                                    <span className="font-semibold mr-2">
+                                    <span className="mr-2 font-semibold">
                                       Option {breakdown.key} {breakdown.label}:
                                     </span>
                                     {breakdown.explanation}
@@ -271,6 +299,18 @@ export default function BatchDetailPage({
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
+                  {documents.map(function (document, idx: number) {
+                    if (
+                      document.status === "completed" &&
+                      document._id === id
+                    ) {
+                      return (
+                        <Button key={idx} variant="outline">
+                          Regenrate
+                        </Button>
+                      );
+                    }
+                  })}
                 </div>
               </CardContent>
             </Card>
